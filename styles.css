@@ -1,0 +1,177 @@
+/* Base look for the inline role tags before per-role colors from
+   settings are injected (main.js injects the real rules at runtime
+   into a <style id="af-generated-styles"> element). This file
+   only covers things that don't need to be settings-driven. */
+
+.af-role-tag-active {
+	opacity: 0.5;
+}
+
+/* Compact QuickAdd-style role list: one flat row per role, name on the
+   left, icon-button cluster on the right. All detailed editing lives in
+   RoleEditModal (opened via the gear icon), not inline — putting a
+   Setting component inside a custom flex row didn't lay out compactly
+   (a Setting's root element is block-level/full-width by design), which
+   is what this replaced. */
+.af-role-list {
+	display: flex;
+	flex-direction: column;
+}
+
+/* CSS Snippets: one cohesive card per snippet (name + delete on a
+   header row, the CSS itself directly below in the SAME box) rather
+   than two separate Setting rows with a visible gap between them —
+   the two-row version read as disconnected/broken, not just plain. */
+.af-snippet-card {
+	background: var(--background-secondary);
+	border-radius: var(--radius-m, 8px);
+	padding: 10px 12px;
+	margin-bottom: 8px;
+}
+
+.af-snippet-card-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+
+.af-snippet-name-input {
+	flex: 1;
+}
+
+.af-snippet-css-input {
+	width: 100%;
+	box-sizing: border-box;
+	font-family: var(--font-monospace);
+	resize: vertical;
+}
+
+.af-role-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	padding: 6px 4px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.af-role-row:last-child {
+	border-bottom: none;
+}
+
+/* Click-to-rename title: looks like plain text until focused */
+.af-role-title-input {
+	font-size: 1em;
+	flex: 1;
+	min-width: 0;
+	border: 1px solid transparent;
+	background: transparent;
+	color: var(--text-normal);
+	padding: 4px 6px;
+	border-radius: 4px;
+	cursor: text;
+}
+
+.af-role-title-input:hover {
+	border-color: var(--background-modifier-border);
+}
+
+.af-role-title-input:focus {
+	border-color: var(--interactive-accent);
+	background: var(--background-primary);
+	outline: none;
+}
+
+.af-role-row-controls {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex-shrink: 0;
+}
+
+/* Small inline text labels placed next to a control inside one Setting
+   row inside RoleEditModal, e.g. "Open" / "Close" before the two
+   delimiter fields, so a shared row is still unambiguous. */
+.af-field-label {
+	font-size: 0.8em;
+	opacity: 0.7;
+	margin-inline-start: 8px;
+	margin-inline-end: 2px;
+	align-self: center;
+	white-space: nowrap;
+}
+
+.af-field-label:first-of-type {
+	margin-inline-start: 0;
+}
+
+.af-undo-btn {
+	margin-inline-start: 10px;
+	cursor: pointer;
+	font-weight: 600;
+}
+
+/* Subtext under a profile's name in the "Switch profile..." picker. */
+.af-profile-suggestion-desc {
+	font-size: 0.8em;
+	opacity: 0.65;
+	margin-top: 2px;
+}
+
+/* Delimiter display mode "show": delimiter characters always visible.
+   Deliberately the SAME visual weight as af-role-tag-active above
+   (not colored like the role's own content) — structural markup reads
+   as structural markup, not as more styled content. */
+.af-role-tag-shown {
+	opacity: 0.6;
+}
+
+/* Delimiter display mode "alias": the stand-in text shown in place of
+   the real delimiters (wikilink-alias-style — reveals the real
+   delimiters on focus in Live Preview via af-role-tag-active
+   instead of this; Reading view always shows this, no reveal). */
+.af-role-alias-widget {
+	opacity: 0.75;
+}
+
+.af-hotkey-hint {
+	font-size: 0.85em;
+	opacity: 0.75;
+	margin-top: -6px;
+}
+
+/* FormatSelectionModal: heads-up when the selection crosses a newline
+   (direct-formatting spans, same as role spans, don't reliably survive
+   a paragraph boundary). */
+.af-format-warning {
+	font-size: 0.85em;
+	color: var(--text-warning, var(--text-error));
+	opacity: 0.85;
+	margin: 4px 0 12px 0;
+}
+
+/* FormatSelectionModal: explains the live-apply behavior at the top of
+   the modal, since it's a departure from the usual "configure then
+   confirm" pattern most Settings/modal UI in Obsidian uses. */
+.af-format-hint {
+	font-size: 0.85em;
+	opacity: 0.65;
+	margin: 4px 0 12px 0;
+}
+
+.af-format-preview-label {
+	font-size: 0.8em;
+	opacity: 0.7;
+	margin-top: 10px;
+}
+
+.af-format-preview {
+	font-size: 0.8em;
+	white-space: pre-wrap;
+	word-break: break-all;
+	background: var(--background-secondary);
+	border-radius: 4px;
+	padding: 8px;
+	margin-top: 4px;
+}
