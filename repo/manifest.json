@@ -1,9 +1,0 @@
-{
-  "id": "advanced-formatting",
-  "name": "Advanced Formatting",
-  "version": "0.1.0",
-  "minAppVersion": "1.6.0",
-  "description": "Typography and user-defined inline formatting roles for Obsidian, live in the editor.",
-  "author": "",
-  "isDesktopOnly": false
-}

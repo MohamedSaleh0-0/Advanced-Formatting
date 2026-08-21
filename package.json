@@ -1,5 +1,5 @@
 {
-	"name": "advanced-formatting",
+	"name": "Advanced-Formatting",
 	"version": "0.1.0",
 	"description": "Typography and user-defined inline styling classes for Obsidian, live in the editor.",
 	"main": "main.js",

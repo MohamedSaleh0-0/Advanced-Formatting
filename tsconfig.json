@@ -3,7 +3,6 @@
 		"target": "ES2018",
 		"module": "CommonJS",
 		"moduleResolution": "node10",
-		
 		"lib": ["ES2018", "DOM"],
 		"outDir": "./dist",
 		"rootDir": "src",

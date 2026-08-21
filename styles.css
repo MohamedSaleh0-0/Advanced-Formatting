@@ -7,6 +7,13 @@
 	opacity: 0.5;
 }
 
+.af-toggle-label {
+	font-size: 0.75em;
+	opacity: 0.6;
+	margin: 0 4px;
+	align-self: center;
+}
+
 /* Compact QuickAdd-style role list: one flat row per role, name on the
    left, icon-button cluster on the right. All detailed editing lives in
    RoleEditModal (opened via the gear icon), not inline — putting a
@@ -16,35 +23,6 @@
 .af-role-list {
 	display: flex;
 	flex-direction: column;
-}
-
-/* CSS Snippets: one cohesive card per snippet (name + delete on a
-   header row, the CSS itself directly below in the SAME box) rather
-   than two separate Setting rows with a visible gap between them —
-   the two-row version read as disconnected/broken, not just plain. */
-.af-snippet-card {
-	background: var(--background-secondary);
-	border-radius: var(--radius-m, 8px);
-	padding: 10px 12px;
-	margin-bottom: 8px;
-}
-
-.af-snippet-card-header {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	margin-bottom: 8px;
-}
-
-.af-snippet-name-input {
-	flex: 1;
-}
-
-.af-snippet-css-input {
-	width: 100%;
-	box-sizing: border-box;
-	font-family: var(--font-monospace);
-	resize: vertical;
 }
 
 .af-role-row {
