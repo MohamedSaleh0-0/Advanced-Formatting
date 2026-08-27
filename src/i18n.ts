@@ -24,7 +24,7 @@ const STRINGS: Record<string, { en: string; ar: string }> = {
 	viewingProfileLabel: { en: "Viewing profile", ar: "الملف المعروض" },
 	viewingProfileDesc: {
 		en: 'Views/edits this profile only — doesn\'t change which one applies to your notes (use "Switch profile..." for that).',
-		ar: 'يعرض/يعدّل هذا الملف فقط — لا يغيّر الملف المُطبّق على ملاحظاتك (استخدم "تبديل الملف الشخصي..." لذلك).',
+		ar: 'يعرض/يعدّل هذا الملف فقط — لا يغيّر الملف المُطبَّق على ملاحظاتك (استخدم "تبديل الملف الشخصي..." لذلك).',
 	},
 	profileActiveStatus: { en: "This profile is currently active.", ar: "هذا الملف نشط حاليًا." },
 	profileInactiveStatus: {
@@ -45,7 +45,7 @@ const STRINGS: Record<string, { en: string; ar: string }> = {
 	addIslamicProfileBtn: { en: "+ Add Islamic/Arabic profile", ar: "+ إضافة ملف إسلامي/عربي" },
 	addIslamicProfileDesc: {
 		en: "Adds a ready-made profile with matn/taleel/hadith/ayah roles for Arabic scholarly notes — separate from your default, deletable like any other.",
-		ar: "يضيف ملفًا جاهزًا يتضمّن أدوار المتن والتعليلات والحديث والآية للملاحظات العلمية العربية — منفصل عن ملفك الافتراضي، وقابل للحذف كأي ملف آخر.",
+		ar: "يضيف ملفًا جاهزًا يتضمن أدوار المتن والتعليلات والحديث والآية للملاحظات العلمية العربية — منفصل عن ملفك الافتراضي، وقابل للحذف كأي ملف آخر.",
 	},
 
 	scopeSectionTitle: { en: "Scope", ar: "نطاق التطبيق" },
@@ -161,7 +161,7 @@ const STRINGS: Record<string, { en: string; ar: string }> = {
 	customCssLabel: { en: "Custom CSS (advanced)", ar: "CSS مخصص (متقدم)" },
 	customCssDesc: {
 		en: 'Raw CSS declarations, applied last so they can override anything above — e.g. "text-shadow: 1px 1px 2px gold;"',
-		ar: 'تصريحات CSS خام، تُطبّق أخيرًا بحيث يمكنها تجاوز أي شيء أعلاه — مثل "text-shadow: 1px 1px 2px gold;"',
+		ar: 'تصريحات CSS خام، تُطبَّق أخيرًا بحيث يمكنها تجاوز أي شيء أعلاه — مثل "text-shadow: 1px 1px 2px gold;"',
 	},
 	snippetsBtn: { en: "Snippets...", ar: "مقتطفات..." },
 	styleDelimitersLabel: { en: "Style the delimiters too", ar: "تنسيق الفواصل أيضًا" },

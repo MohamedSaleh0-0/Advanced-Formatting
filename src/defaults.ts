@@ -70,7 +70,7 @@ export const DEFAULT_CSS_SNIPPETS: { name: string; css: string }[] = [
 // decoration, no CSS effect — until switched on. Presets ship this way
 // (seeded by default, off by default, deletable) rather than requiring a
 // separate "quick add" step.
-const PRESET_ROLES: Record<string, Role> = {
+export const PRESET_ROLES: Record<string, Role> = {
 	question: {
 		id: "question", label: "Question", open: "[?", close: "?]", color: "#1D5DA6",
 		bold: false, italic: true, underline: false, fontFamily: "", sizeEm: null,
@@ -144,7 +144,7 @@ export function islamicProfile(): Profile {
 				highlightColor: "#FFF7DC", customCss: "", enabled: false,
 			},
 			{
-				id: "ayah", label: "آية", open: "﴾", close: "﴿", color: "#8A6D00",
+				id: "ayah", label: "آية", open: "﴿", close: "﴾", color: "#8A6D00",
 				bold: true, italic: false, underline: false, fontFamily: "", sizeEm: 1.08,
 				highlightColor: "", customCss: "", enabled: false,
 			},
