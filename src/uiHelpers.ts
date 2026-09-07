@@ -99,11 +99,11 @@ export function renderFontFamilyPicker(container: HTMLElement, currentValue: str
 		dd.setValue(isCustom ? CUSTOM_VALUE : currentValue);
 		dd.onChange((value) => {
 			if (value === CUSTOM_VALUE) {
-				customRow.settingEl.style.display = "";
+				customRow.settingEl.removeClass("af-hidden");
 				if (customText) customText.inputEl.focus();
 				return;
 			}
-			customRow.settingEl.style.display = "none";
+			customRow.settingEl.addClass("af-hidden");
 			onChange(value);
 		});
 	});
@@ -116,6 +116,6 @@ export function renderFontFamilyPicker(container: HTMLElement, currentValue: str
 			.setPlaceholder("Exact installed font name")
 			.onChange((value) => onChange(value));
 	});
-	customRow.settingEl.style.display = isCustom ? "" : "none";
+	if (!isCustom) customRow.settingEl.addClass("af-hidden");
 }
 

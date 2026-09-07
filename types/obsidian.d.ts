@@ -40,6 +40,7 @@ declare module "obsidian" {
 		getMarkdownFiles(): TFile[];
 		read(file: TFile): Promise<string>;
 		modify(file: TFile, data: string): Promise<void>;
+		process(file: TFile, fn: (data: string) => string): Promise<string>;
 	}
 
 	export class Workspace {
@@ -236,6 +237,7 @@ declare module "obsidian" {
 		constructor(containerEl: HTMLElement);
 		setName(name: string): this;
 		setDesc(desc: string): this;
+		setHeading(): this;
 		addText(cb: (component: TextComponent) => any): this;
 		addTextArea(cb: (component: TextAreaComponent) => any): this;
 		addToggle(cb: (component: ToggleComponent) => any): this;
@@ -259,4 +261,5 @@ interface HTMLElement {
 	createSpan(attrs?: { text?: string; cls?: string }): HTMLSpanElement;
 	setText(text: string): void;
 	addClass(cls: string): void;
+	removeClass(cls: string): void;
 }

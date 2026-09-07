@@ -76,8 +76,6 @@ export class AdvancedFormattingSettingTab extends PluginSettingTab {
 		// mirroring, not just a partial gesture at it.
 		containerEl.dir = lang === "ar" ? "rtl" : "ltr";
 
-		containerEl.createEl("h2", { text: t("appTitle", lang) });
-
 		// Language toggle — first thing in the pane, deliberately: it
 		// changes how everything below it reads, so it shouldn't be
 		// buried under a profile-specific section.
@@ -100,7 +98,7 @@ export class AdvancedFormattingSettingTab extends PluginSettingTab {
 		// above). This dropdown picks which profile the rest of the pane
 		// displays/edits, independent of which one is actually applied to
 		// your notes right now.
-		containerEl.createEl("h3", { text: t("profileSectionTitle", lang) });
+		new Setting(containerEl).setName(t("profileSectionTitle", lang)).setHeading();
 		const profileRow = new Setting(containerEl).setName(t("viewingProfileLabel", lang)).setDesc(t("viewingProfileDesc", lang));
 
 		const profileOptions: Record<string, string> = {};
@@ -119,8 +117,7 @@ export class AdvancedFormattingSettingTab extends PluginSettingTab {
 
 		const viewedProfile = this.getViewedProfile();
 
-		const statusEl = containerEl.createEl("p");
-		statusEl.style.cssText = "font-size:0.85em;opacity:0.75;margin-top:-8px;";
+		const statusEl = containerEl.createEl("p", { cls: "af-profile-status" });
 		statusEl.setText(
 			viewedProfile.id === this.plugin.settings.activeProfileId ? t("profileActiveStatus", lang) : t("profileInactiveStatus", lang)
 		);
@@ -197,7 +194,7 @@ export class AdvancedFormattingSettingTab extends PluginSettingTab {
 		);
 
 		// Scope
-		containerEl.createEl("h3", { text: t("scopeSectionTitle", lang) });
+		new Setting(containerEl).setName(t("scopeSectionTitle", lang)).setHeading();
 		new Setting(containerEl).setName(t("scopeModeLabel", lang)).addDropdown((dd) =>
 			dd
 				.addOptions({
@@ -237,7 +234,7 @@ export class AdvancedFormattingSettingTab extends PluginSettingTab {
 		}
 
 		// Typography
-		containerEl.createEl("h3", { text: t("typographySectionTitle", lang) });
+		new Setting(containerEl).setName(t("typographySectionTitle", lang)).setHeading();
 
 		renderFontFamilyPicker(containerEl, viewedProfile.typography.fontFamily, async (value) => {
 			viewedProfile.typography.fontFamily = value;
@@ -333,7 +330,7 @@ export class AdvancedFormattingSettingTab extends PluginSettingTab {
 			);
 
 		// Headings H1-H6
-		containerEl.createEl("h3", { text: t("headingsSectionTitle", lang) });
+		new Setting(containerEl).setName(t("headingsSectionTitle", lang)).setHeading();
 
 		for (let i = 1; i <= 6; i++) {
 			const hKey = ("h" + i) as HeadingKey;
@@ -372,7 +369,7 @@ export class AdvancedFormattingSettingTab extends PluginSettingTab {
 		}
 
 		// List Bullets
-		containerEl.createEl("h3", { text: t("listBulletsSectionTitle", lang) });
+		new Setting(containerEl).setName(t("listBulletsSectionTitle", lang)).setHeading();
 		viewedProfile.typography.listBulletShapes.forEach((shape, i) => {
 			new Setting(containerEl).setName(tn("bulletDepthLabel", i + 1, lang)).addDropdown((dd) =>
 				dd
@@ -394,7 +391,7 @@ export class AdvancedFormattingSettingTab extends PluginSettingTab {
 		// entry there. Deliberately separate from Roles: this is
 		// color-only, one-click, no dialog — for when you just want to
 		// tint a word or two without opening Format selection.
-		containerEl.createEl("h3", { text: t("quickColorsSectionTitle", lang) });
+		new Setting(containerEl).setName(t("quickColorsSectionTitle", lang)).setHeading();
 		containerEl.createEl("p", { text: t("quickColorsSectionDesc", lang), cls: "setting-item-description" });
 		viewedProfile.quickColors.forEach((color, i) => {
 			const setting = new Setting(containerEl).setName(colorLabel(color));
@@ -430,7 +427,7 @@ export class AdvancedFormattingSettingTab extends PluginSettingTab {
 		// editor (both offer a "Snippets..." button next to that field),
 		// so a declaration like "letter-spacing: 0.05em;" doesn't need
 		// retyping every time it's wanted.
-		containerEl.createEl("h3", { text: t("cssSnippetsSectionTitle", lang) });
+		new Setting(containerEl).setName(t("cssSnippetsSectionTitle", lang)).setHeading();
 		containerEl.createEl("p", { text: t("cssSnippetsSectionDesc", lang), cls: "setting-item-description" });
 		viewedProfile.cssSnippets.forEach((snippet, i) => {
 			const card = containerEl.createDiv({ cls: "af-snippet-card" });
@@ -471,7 +468,7 @@ export class AdvancedFormattingSettingTab extends PluginSettingTab {
 		// currently VIEWED, which is the natural shareable unit now that
 		// roles are fully user-defined (a "legal document markup" profile,
 		// a "fiction manuscript" profile) rather than one global blob.
-		containerEl.createEl("h3", { text: t("backupSectionTitle", lang) });
+		new Setting(containerEl).setName(t("backupSectionTitle", lang)).setHeading();
 		new Setting(containerEl)
 			.setName(t("exportLabel", lang))
 			.setDesc(tn("exportDescTemplate", isolate(viewedProfile.name), lang))
@@ -495,7 +492,7 @@ export class AdvancedFormattingSettingTab extends PluginSettingTab {
 		// hide unless the cursor is inside them, exactly like ** on bold
 		// text. Presets are just pre-filled examples of this, nothing about
 		// matching is specific to them.
-		containerEl.createEl("h3", { text: t("inlineRolesSectionTitle", lang) });
+		new Setting(containerEl).setName(t("inlineRolesSectionTitle", lang)).setHeading();
 		containerEl.createEl("p", { text: t("inlineRolesDesc", lang) });
 
 		// Role commands (and their hotkeys) only reflect the ACTIVE
@@ -516,28 +513,18 @@ export class AdvancedFormattingSettingTab extends PluginSettingTab {
 		viewedProfile.roles.forEach((role, index) => {
 			if (role.hidden) return; // auto-generated by "Format selection...", not a user-facing row
 			const row = list.createDiv({ cls: "af-role-row" });
-			// Inline, not class-based: a class-based rule lost to something
-			// in Obsidian's own settings-pane stylesheet (near-certainly a
-			// more specific selector beating a single custom class
-			// regardless of load order) — inline style beats any selector
-			// that isn't !important, which this project avoids on
-			// principle, so this is a structural fix, not a guess.
-			row.style.cssText =
-				"display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 4px;border-bottom:1px solid var(--background-modifier-border);";
 
 			const titleInput = row.createEl("input", {
 				type: "text",
 				cls: "af-role-title-input",
 				value: role.label || role.id,
 			});
-			titleInput.style.cssText = "flex:1 1 auto;min-width:0;";
 			titleInput.addEventListener("change", async () => {
 				role.label = titleInput.value;
 				await this.plugin.saveAndApply();
 			});
 
 			const controls = row.createDiv({ cls: "af-role-row-controls" });
-			controls.style.cssText = "display:flex;align-items:center;gap:6px;flex:0 0 auto;";
 
 			new ToggleComponent(controls)
 				.setTooltip(t("roleToggleTooltip", lang))

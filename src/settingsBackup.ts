@@ -34,8 +34,7 @@ class ExportFallbackModal extends Modal {
 		contentEl.dir = this.lang === "ar" ? "rtl" : "ltr";
 		contentEl.createEl("h2", { text: t("copyManuallyTitle", this.lang) });
 		contentEl.createEl("p", { text: t("copyManuallyDesc", this.lang) });
-		const ta = contentEl.createEl("textarea", { text: this.json });
-		ta.style.cssText = "width:100%;height:300px;font-family:var(--font-monospace);";
+		const ta = contentEl.createEl("textarea", { text: this.json, cls: "af-backup-textarea-export" });
 		ta.focus();
 		ta.select();
 	}
@@ -72,8 +71,7 @@ export class ImportSettingsModal extends Modal {
 		contentEl.createEl("p", { text: t("importProfileDesc", lang) });
 
 		let pastedText = "";
-		const ta = contentEl.createEl("textarea");
-		ta.style.cssText = "width:100%;height:250px;font-family:var(--font-monospace);";
+		const ta = contentEl.createEl("textarea", { cls: "af-backup-textarea-import" });
 		ta.addEventListener("input", () => {
 			pastedText = ta.value;
 		});

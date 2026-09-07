@@ -435,10 +435,12 @@ class AdvancedFormattingPlugin extends Plugin {
 	colorMenuTitle(hex: string): DocumentFragment {
 		const frag = document.createDocumentFragment();
 		const swatch = document.createElement("span");
-		swatch.style.cssText =
-			"display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:8px;vertical-align:middle;background-color:" +
-			hex +
-			";border:1px solid var(--background-modifier-border);";
+		swatch.addClass("af-color-swatch");
+		// The swatch's shape/size/border are themeable via styles.css; only
+		// the actual color is genuinely per-instance data (the user's own
+		// chosen hex), so that's the one value handed over as a CSS custom
+		// property rather than baked into a static class.
+		swatch.style.setProperty("--af-swatch-color", hex);
 		frag.appendChild(swatch);
 		frag.appendChild(document.createTextNode("Colorize: " + colorLabel(hex)));
 		return frag;
@@ -825,16 +827,22 @@ class AdvancedFormattingPlugin extends Plugin {
 			"Strip Advanced Formatting markup from the whole vault?",
 			"Removes every role delimiter this plugin could have written (any profile, including disabled roles and one-off Format-selection/Colorize spans) from every Markdown note. The plain text itself is kept — only this plugin's own markup is removed. This isn't a single undoable action — make sure you have a backup or version control for your vault before running it on a lot of notes.",
 			async () => {
+				// vault.process() rather than read()+modify(): these files
+				// aren't open in an editor, so this is the atomic path —
+				// it re-reads immediately before writing, avoiding a lost
+				// write if something else touches the file between this
+				// loop's read and write.
 				const pairs = collectAllDelimiterPairs(this.settings);
 				const files = this.app.vault.getMarkdownFiles();
 				let changedCount = 0;
 				for (const file of files) {
-					const original = await this.app.vault.read(file);
-					const result = stripDelimitersFromText(original, pairs);
-					if (result.changed) {
-						await this.app.vault.modify(file, result.text);
-						changedCount++;
-					}
+					let didChange = false;
+					await this.app.vault.process(file, (original) => {
+						const result = stripDelimitersFromText(original, pairs);
+						didChange = result.changed;
+						return result.changed ? result.text : original;
+					});
+					if (didChange) changedCount++;
 				}
 				new Notice(
 					changedCount

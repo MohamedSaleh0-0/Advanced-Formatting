@@ -68,7 +68,7 @@ const STRINGS: Record<string, { en: string; ar: string }> = {
 	contentWidthLabel: { en: "Content column width (px)", ar: "عرض عمود المحتوى (بكسل)" },
 	footnoteSizeLabel: { en: "Footnote size (px)", ar: "حجم خط الهامش (بكسل)" },
 
-	headingsSectionTitle: { en: "Headings Styling (H1 - H6)", ar: "تنسيق العناوين (H1 - H6)" },
+	headingsSectionTitle: { en: "Heading styles (H1-H6)", ar: "تنسيق العناوين (H1 - H6)" },
 	headingLabel: { en: "Heading {n}", ar: "العنوان {n}" },
 	headingEditTooltip: { en: "Edit style (color, bold, font, CSS, ...)", ar: "تعديل النمط (اللون، الغامق، الخط، CSS، ...)" },
 	headingSizeLabel: { en: "Size", ar: "الحجم" },

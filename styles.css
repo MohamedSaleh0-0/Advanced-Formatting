@@ -1,0 +1,66 @@
+/* Advanced Formatting — settings-pane styling.
+ *
+ * These rules replace what used to be set inline from code (element.style.*)
+ * — moved here so themes/CSS snippets can override them, and so nothing in
+ * the plugin sets styles directly from JS. Note-content styling (roles,
+ * headings, footnotes, direction/alignment overrides) is NOT here — that's
+ * generated dynamically per-profile in stylesheet.ts, since it's built from
+ * live user configuration (colors, fonts, custom CSS) rather than fixed
+ * layout, and is injected into its own <style> element at runtime.
+ */
+
+.af-profile-status {
+	font-size: 0.85em;
+	opacity: 0.75;
+	margin-top: -8px;
+}
+
+.af-role-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	padding: 6px 4px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.af-role-title-input {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.af-role-row-controls {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex: 0 0 auto;
+}
+
+.af-hidden {
+	display: none;
+}
+
+.af-backup-textarea-export,
+.af-backup-textarea-import {
+	width: 100%;
+	font-family: var(--font-monospace);
+}
+
+.af-backup-textarea-export {
+	height: 300px;
+}
+
+.af-backup-textarea-import {
+	height: 250px;
+}
+
+.af-color-swatch {
+	display: inline-block;
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	margin-right: 8px;
+	vertical-align: middle;
+	background-color: var(--af-swatch-color);
+	border: 1px solid var(--background-modifier-border);
+}

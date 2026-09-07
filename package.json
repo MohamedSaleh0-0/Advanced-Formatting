@@ -1,7 +1,7 @@
 {
 	"name": "advanced-formatting",
 	"version": "0.1.0",
-	"description": "Typography and user-defined inline styling classes for Obsidian, live in the editor.",
+	"description": "Typography and user-defined inline formatting roles, live in the editor.",
 	"main": "main.js",
 	"scripts": {
 		"build": "tsc -p tsconfig.json && node scripts/bundle.js",
