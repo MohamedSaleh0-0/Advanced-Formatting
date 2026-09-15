@@ -1,6 +1,6 @@
-import { Editor, EditorPosition, Notice, Plugin, normalizePath } from "obsidian";
-import { Delimiters, AdvancedFormattingSettings, Profile, Role, HeadingKey, ListBulletShape } from "./types";
-import { DEFAULT_HEADING_STYLES, DEFAULT_SCOPE, DEFAULT_TYPOGRAPHY, DEFAULT_QUICK_COLORS, DEFAULT_CSS_SNIPPETS, defaultRoles, defaultSettings, freshProfile, islamicProfile, getActiveProfile, mergeTypography } from "./defaults";
+import { createEl, Editor, EditorPosition, Notice, Plugin } from "obsidian";
+import { Delimiters, AdvancedFormattingSettings, Profile, Role, ListBulletShape } from "./types";
+import { DEFAULT_SCOPE, DEFAULT_TYPOGRAPHY, DEFAULT_QUICK_COLORS, DEFAULT_CSS_SNIPPETS, defaultRoles, defaultSettings, freshProfile, islamicProfile, getActiveProfile, mergeTypography } from "./defaults";
 import { computeOrphanedDelimiters, resolveDelims, buildRoleRegexes, wrapWithDelims, unwrapDirectFormatting, findEnclosingRoleMatch } from "./delimiters";
 import { clearFormattingAtRange } from "./clearFormatting";
 import { isolate, tn } from "./i18n";
@@ -15,7 +15,6 @@ import { ProfilePickerModal } from "./profilePicker";
 import { FormatSelectionModal } from "./formatSelectionModal";
 import { CustomColorModal } from "./customColorModal";
 import { colorLabel } from "./colorNames";
-import { buildBundledFontFaceCss } from "./bundledFonts";
 import { buildDirectFormatMarkup, defaultDirectFormatOptions, detectBareBoldItalic, detectExistingFormatAroundRole, DirectFormatOptions, findOrBuildEphemeralRole } from "./directFormat";
 import { LineDirection, detectLineDirection, setLineDirection } from "./direction";
 import { AlignOverride, BoldOverride, detectAlignOverride, setAlignOverride, detectBoldOverride, setBoldOverride } from "./headingOverrides";
@@ -23,10 +22,15 @@ import { detectHeadingKey, detectListDepth } from "./lineContext";
 import { collectAllDelimiterPairs, stripDelimitersFromText } from "./stripFormatting";
 import { ConfirmModal } from "./confirmModal";
 
+type UnknownRecord = Record<string, unknown>;
+
+function asRecord(value: unknown): UnknownRecord {
+	return value && typeof value === "object" ? (value as UnknownRecord) : {};
+}
+
 class AdvancedFormattingPlugin extends Plugin {
 	settings!: AdvancedFormattingSettings;
-	private styleEl!: HTMLStyleElement;
-	private fontFaceEl!: HTMLStyleElement;
+	private generatedStyleSheet!: CSSStyleSheet;
 	// Delimiter pairs the PREVIOUSLY active profile matched but the
 	// currently active one doesn't — set on each switchProfile() call,
 	// read by decorations.ts to cosmetically hide just those leftover
@@ -45,26 +49,13 @@ class AdvancedFormattingPlugin extends Plugin {
 		await this.loadSettings();
 		validateRoles(getActiveProfile(this.settings).roles);
 
-		this.styleEl = document.createElement("style");
-		this.styleEl.id = "af-generated-styles";
-		document.head.appendChild(this.styleEl);
+		this.generatedStyleSheet = new CSSStyleSheet();
+		const documentWithAdoptedSheets = document as Document & { adoptedStyleSheets: CSSStyleSheet[] };
+		documentWithAdoptedSheets.adoptedStyleSheets = [
+			...(documentWithAdoptedSheets.adoptedStyleSheets || []),
+			this.generatedStyleSheet,
+		];
 		this.applyStylesheet();
-
-		// Separate from styleEl above and populated ONCE, not on every
-		// saveAndApply() — @font-face declarations for the bundled fonts
-		// (bundledFonts.ts) never change at runtime, unlike the
-		// per-profile stylesheet. getResourcePath needs the plugin's own
-		// vault-relative folder (this.manifest.dir), which is only valid
-		// once the plugin has actually loaded.
-		this.fontFaceEl = document.createElement("style");
-		this.fontFaceEl.id = "af-bundled-fonts";
-		document.head.appendChild(this.fontFaceEl);
-		if (this.manifest.dir) {
-			const dir = this.manifest.dir;
-			this.fontFaceEl.textContent = buildBundledFontFaceCss((relativePath) =>
-				this.app.vault.adapter.getResourcePath(normalizePath(dir + "/" + relativePath))
-			);
-		}
 
 		this.updateScopeClass();
 		this.registerEvent(this.app.workspace.on("active-leaf-change", () => this.updateScopeClass()));
@@ -203,8 +194,8 @@ class AdvancedFormattingPlugin extends Plugin {
 							.setIcon("palette")
 							.onClick(() => {
 								if (colorizeRange) editor.setSelection(colorizeRange.from, colorizeRange.to);
-								new CustomColorModal(this.app, async (color) => {
-									await this.runColorize(editor, color);
+								new CustomColorModal(this.app, (color) => {
+									void this.runColorize(editor, color);
 								}).open();
 							})
 					);
@@ -324,12 +315,12 @@ class AdvancedFormattingPlugin extends Plugin {
 								.setTitle("Bullet (level " + listDepth + "): " + shape)
 								.setIcon("list")
 								.setChecked(profile.typography.listBulletShapes[idx] === shape)
-								.onClick(async () => {
+								.onClick(() => {
 									while (profile.typography.listBulletShapes.length <= idx) {
 										profile.typography.listBulletShapes.push("circle");
 									}
 									profile.typography.listBulletShapes[idx] = shape;
-									await this.saveAndApply();
+									void this.saveAndApply();
 								})
 						);
 					}
@@ -382,19 +373,23 @@ class AdvancedFormattingPlugin extends Plugin {
 		// them on the way out.
 		this.addCommand({
 			id: "strip-formatting-current-note",
-			name: "Strip Advanced Formatting markup (this note)",
+			name: "Strip formatting from this note",
 			editorCallback: (editor: Editor) => this.runStripFormattingCurrentNote(editor),
 		});
 		this.addCommand({
 			id: "strip-formatting-vault",
-			name: "Strip Advanced Formatting markup (entire vault)",
+			name: "Strip formatting from entire vault",
 			callback: () => this.runStripFormattingVault(),
 		});
 	}
 
 	onunload(): void {
-		if (this.styleEl) this.styleEl.remove();
-		if (this.fontFaceEl) this.fontFaceEl.remove();
+		if (this.generatedStyleSheet) {
+			const documentWithAdoptedSheets = document as Document & { adoptedStyleSheets: CSSStyleSheet[] };
+			documentWithAdoptedSheets.adoptedStyleSheets = documentWithAdoptedSheets.adoptedStyleSheets.filter(
+				(sheet) => sheet !== this.generatedStyleSheet
+			);
+		}
 		document.body.classList.remove("af-scope-active");
 	}
 
@@ -434,8 +429,7 @@ class AdvancedFormattingPlugin extends Plugin {
 	// common color name is a close enough match.
 	colorMenuTitle(hex: string): DocumentFragment {
 		const frag = document.createDocumentFragment();
-		const swatch = document.createElement("span");
-		swatch.addClass("af-color-swatch");
+		const swatch = createEl("span", { cls: "af-color-swatch" });
 		// The swatch's shape/size/border are themeable via styles.css; only
 		// the actual color is genuinely per-instance data (the user's own
 		// chosen hex), so that's the one value handed over as a CSS custom
@@ -537,7 +531,7 @@ class AdvancedFormattingPlugin extends Plugin {
 	unregisterRoleCommand(role: Role): void {
 		try {
 			this.app.commands.removeCommand(this.manifest.id + ":wrap-as-" + role.id);
-		} catch (e) {
+		} catch {
 			/* best-effort — an orphaned command entry is harmless if this fails */
 		}
 	}
@@ -609,7 +603,8 @@ class AdvancedFormattingPlugin extends Plugin {
 	// Fills in defaults for any field a profile is missing — used both for
 	// profiles already in the new shape (in case a field was added to the
 	// schema since they were saved) and for the migration path below.
-	private hydrateProfile(p: any): Profile {
+	private hydrateProfile(rawProfile: unknown): Profile {
+		const p = asRecord(rawProfile);
 		const typography = mergeTypography(p.typography);
 		if (!typography.listBulletShapes || !typography.listBulletShapes.length) {
 			typography.listBulletShapes = DEFAULT_TYPOGRAPHY.listBulletShapes.slice();
@@ -629,10 +624,10 @@ class AdvancedFormattingPlugin extends Plugin {
 		const cssSnippets = Array.isArray(p.cssSnippets) ? p.cssSnippets : DEFAULT_CSS_SNIPPETS.map((s) => Object.assign({}, s));
 
 		return {
-			id: p.id || "profile" + Date.now(),
-			name: p.name || "Profile",
+			id: typeof p.id === "string" && p.id ? p.id : "profile" + Date.now(),
+			name: typeof p.name === "string" && p.name ? p.name : "Profile",
 			description: typeof p.description === "string" ? p.description : "",
-			roles: p.roles && p.roles.length ? p.roles : defaultRoles(),
+			roles: Array.isArray(p.roles) && p.roles.length ? (p.roles as Role[]) : defaultRoles(),
 			typography,
 			scope,
 			quickColors,
@@ -641,15 +636,16 @@ class AdvancedFormattingPlugin extends Plugin {
 	}
 
 	async loadSettings(): Promise<void> {
-		const data = (await this.loadData()) || {};
+		const data = asRecord(await this.loadData());
 		const uiLanguage: "en" | "ar" = data.uiLanguage === "ar" ? "ar" : "en";
 
 		if (data.profiles && Array.isArray(data.profiles) && data.profiles.length) {
 			// Already the new (profiles) shape.
-			const profiles = data.profiles.map((p: any) => this.hydrateProfile(p));
+			const profiles = data.profiles.map((p) => this.hydrateProfile(p));
+			const requestedActiveProfileId = typeof data.activeProfileId === "string" ? data.activeProfileId : null;
 			const activeProfileId =
-				data.activeProfileId && profiles.some((p: Profile) => p.id === data.activeProfileId)
-					? data.activeProfileId
+				requestedActiveProfileId && profiles.some((p: Profile) => p.id === requestedActiveProfileId)
+					? requestedActiveProfileId
 					: profiles[0].id;
 			this.settings = { profiles, activeProfileId, uiLanguage };
 		} else if (data.roles || data.typography || data.scope) {
@@ -737,12 +733,12 @@ class AdvancedFormattingPlugin extends Plugin {
 			currentTo = { line: currentFrom.line, ch: currentFrom.ch + markup.length };
 		};
 
-		const cancel = async () => {
+		const cancel = () => {
 			if (pendingNewRole) {
 				const idx = profile.roles.indexOf(pendingNewRole);
 				if (idx !== -1) profile.roles.splice(idx, 1);
 				pendingNewRole = null;
-				await this.saveAndApply();
+				void this.saveAndApply();
 			}
 			editor.replaceRange(target.raw, currentFrom, currentTo);
 		};
@@ -826,7 +822,8 @@ class AdvancedFormattingPlugin extends Plugin {
 			this.app,
 			"Strip Advanced Formatting markup from the whole vault?",
 			"Removes every role delimiter this plugin could have written (any profile, including disabled roles and one-off Format-selection/Colorize spans) from every Markdown note. The plain text itself is kept — only this plugin's own markup is removed. This isn't a single undoable action — make sure you have a backup or version control for your vault before running it on a lot of notes.",
-			async () => {
+			() => {
+				void (async () => {
 				// vault.process() rather than read()+modify(): these files
 				// aren't open in an editor, so this is the atomic path —
 				// it re-reads immediately before writing, avoiding a lost
@@ -849,6 +846,7 @@ class AdvancedFormattingPlugin extends Plugin {
 						? "Advanced Formatting: stripped markup from " + changedCount + " note(s)."
 						: "Advanced Formatting: nothing to strip in this vault."
 				);
+				})();
 			}
 		).open();
 	}
@@ -860,7 +858,7 @@ class AdvancedFormattingPlugin extends Plugin {
 	}
 
 	applyStylesheet(): void {
-		if (this.styleEl) this.styleEl.textContent = buildStylesheet(getActiveProfile(this.settings));
+		if (this.generatedStyleSheet) this.generatedStyleSheet.replaceSync(buildStylesheet(getActiveProfile(this.settings)));
 	}
 }
 

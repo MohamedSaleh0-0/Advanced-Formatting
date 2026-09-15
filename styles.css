@@ -1,4 +1,4 @@
-/* Advanced Formatting — settings-pane styling.
+/* Advanced Formatting — bundled fonts and settings-pane styling.
  *
  * These rules replace what used to be set inline from code (element.style.*)
  * — moved here so themes/CSS snippets can override them, and so nothing in
@@ -6,8 +6,48 @@
  * headings, footnotes, direction/alignment overrides) is NOT here — that's
  * generated dynamically per-profile in stylesheet.ts, since it's built from
  * live user configuration (colors, fonts, custom CSS) rather than fixed
- * layout, and is injected into its own <style> element at runtime.
+ * layout, and is applied to an adopted CSSStyleSheet at runtime.
  */
+
+@font-face {
+	font-family: "Amiri (bundled)";
+	src: url("fonts/amiri/Amiri-Regular.woff2") format("woff2");
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: "Amiri (bundled)";
+	src: url("fonts/amiri/Amiri-Bold.woff2") format("woff2");
+	font-weight: 700;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: "Scheherazade New (bundled)";
+	src: url("fonts/scheherazade-new/ScheherazadeNew-Regular.woff2") format("woff2");
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: "Scheherazade New (bundled)";
+	src: url("fonts/scheherazade-new/ScheherazadeNew-Bold.woff2") format("woff2");
+	font-weight: 700;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: "Noto Naskh Arabic (bundled)";
+	src: url("fonts/noto-naskh-arabic/NotoNaskhArabic-Variable.woff2") format("woff2");
+	font-weight: 100 900;
+	font-style: normal;
+	font-display: swap;
+}
 
 .af-profile-status {
 	font-size: 0.85em;

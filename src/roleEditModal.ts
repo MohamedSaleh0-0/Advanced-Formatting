@@ -110,9 +110,9 @@ export class RoleEditModal extends Modal {
 		);
 
 		contentEl.createEl("p", { text: t("fontFamilyDesc", lang), cls: "setting-item-description" });
-		renderFontFamilyPicker(contentEl, role.fontFamily || "", async (value) => {
+		renderFontFamilyPicker(contentEl, role.fontFamily || "", (value) => {
 			role.fontFamily = value;
-			await this.plugin.saveAndApply();
+			void this.plugin.saveAndApply();
 		});
 
 		new Setting(contentEl).setName(t("boldLabel", lang)).addToggle((toggle) =>
@@ -182,7 +182,7 @@ export class RoleEditModal extends Modal {
 				const snippets = getActiveProfile(this.plugin.settings).cssSnippets;
 				openSnippetMenu(evt, snippets, (css) => {
 					role.customCss = role.customCss ? role.customCss + "\n" + css : css;
-					this.plugin.saveAndApply();
+					void this.plugin.saveAndApply();
 					this.onOpen(); // re-render to reflect the appended snippet
 				});
 			})

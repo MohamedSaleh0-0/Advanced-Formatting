@@ -1,7 +1,6 @@
-import { App } from "obsidian";
-import { editorInfoField } from "obsidian";
-import type { EditorView, ViewUpdate } from "@codemirror/view";
-import type { RangeSetBuilder } from "@codemirror/state";
+import { App, TAbstractFile, createEl, editorInfoField } from "obsidian";
+import { Decoration, EditorView, ViewPlugin, WidgetType, type ViewUpdate } from "@codemirror/view";
+import { RangeSetBuilder } from "@codemirror/state";
 import { AdvancedFormattingSettings, RoleMatch, Delimiters } from "./types";
 import { getActiveProfile } from "./defaults";
 import { buildRoleRegexes, buildOrphanedRegexes, findLineMatches } from "./delimiters";
@@ -16,103 +15,77 @@ export interface DecoratablePlugin {
 	orphanedDelimiterPairs?: Delimiters[];
 }
 
-let cmAvailable = true;
-let CM_ViewPlugin: any;
-let CM_Decoration: any;
-let CM_WidgetType: any;
-let CM_RangeSetBuilder: any;
-let CM_EditorView: any;
-try {
-	({ ViewPlugin: CM_ViewPlugin, Decoration: CM_Decoration, WidgetType: CM_WidgetType, EditorView: CM_EditorView } = require("@codemirror/view"));
-	({ RangeSetBuilder: CM_RangeSetBuilder } = require("@codemirror/state"));
-} catch (e) {
-	cmAvailable = false;
+const cmAvailable = true;
+
+class FootnoteRefWidget extends WidgetType {
+	constructor(private numeral: string) {
+		super();
+	}
+	eq(other: WidgetType): boolean {
+		return other instanceof FootnoteRefWidget && other.numeral === this.numeral;
+	}
+	toDOM(_view: EditorView): HTMLElement {
+		const sup = createEl("sup", { cls: "af-footnote-ref-widget", text: this.numeral });
+		return sup;
+	}
+	ignoreEvent(_event: Event): boolean {
+		return false;
+	}
 }
 
-// Widgets are declared lazily, once CM_WidgetType is known to exist —
-// extending an unavailable runtime class at module-load time would throw
-// even in environments where cmAvailable ends up false (e.g. these tests).
-let FootnoteRefWidget: any;
-let FootnoteDefMarkerWidget: any;
-let FootnoteSeparatorWidget: any;
-let DelimiterAliasWidget: any;
-if (cmAvailable) {
-	FootnoteRefWidget = class extends CM_WidgetType {
-		constructor(private numeral: string) {
-			super();
-		}
-		eq(other: any) {
-			return other instanceof FootnoteRefWidget && other.numeral === this.numeral;
-		}
-		toDOM() {
-			const sup = document.createElement("sup");
-			sup.className = "af-footnote-ref-widget";
-			sup.textContent = this.numeral;
-			return sup;
-		}
-		ignoreEvent() {
-			return false;
-		}
-	};
+class FootnoteDefMarkerWidget extends WidgetType {
+	constructor(private numeral: string) {
+		super();
+	}
+	eq(other: WidgetType): boolean {
+		return other instanceof FootnoteDefMarkerWidget && other.numeral === this.numeral;
+	}
+	toDOM(_view: EditorView): HTMLElement {
+		const span = createEl("span", { cls: "af-footnote-def-marker" });
+		// Trailing NBSP so the definition text doesn't crowd the marker
+		// now that the raw "[^label]: " source text is hidden.
+		span.textContent = this.numeral + ".\u00A0";
+		return span;
+	}
+	ignoreEvent(_event: Event): boolean {
+		return false;
+	}
+}
 
-	FootnoteDefMarkerWidget = class extends CM_WidgetType {
-		constructor(private numeral: string) {
-			super();
-		}
-		eq(other: any) {
-			return other instanceof FootnoteDefMarkerWidget && other.numeral === this.numeral;
-		}
-		toDOM() {
-			const span = document.createElement("span");
-			span.className = "af-footnote-def-marker";
-			// Trailing NBSP so the definition text doesn't crowd the marker
-			// now that the raw "[^label]: " source text is hidden.
-			span.textContent = this.numeral + ".\u00A0";
-			return span;
-		}
-		ignoreEvent() {
-			return false;
-		}
-	};
+// Block widget: the matbaʿa-style rule above the first footnote
+// definition. Additive only (Decoration.widget, not .replace) — it
+// doesn't hide anything, just inserts a line above.
+class FootnoteSeparatorWidget extends WidgetType {
+	eq(other: WidgetType): boolean {
+		return other instanceof FootnoteSeparatorWidget;
+	}
+	toDOM(_view: EditorView): HTMLElement {
+		const div = createEl("div", { cls: "af-footnote-separator" });
+		return div;
+	}
+	ignoreEvent(_event: Event): boolean {
+		return true;
+	}
+}
 
-	// Block widget: the matbaʿa-style rule above the first footnote
-	// definition. Additive only (Decoration.widget, not .replace) — it
-	// doesn't hide anything, just inserts a line above.
-	FootnoteSeparatorWidget = class extends CM_WidgetType {
-		eq(other: any) {
-			return other instanceof FootnoteSeparatorWidget;
-		}
-		toDOM() {
-			const div = document.createElement("div");
-			div.className = "af-footnote-separator";
-			return div;
-		}
-		ignoreEvent() {
-			return true;
-		}
-	};
-
-	// Delimiter "alias" display mode — same wikilink-alias UX pattern:
-	// shown in place of the real delimiter while the cursor's elsewhere;
-	// emitRole swaps this out for the real literal text (a plain mark,
-	// not this widget) the moment the cursor enters the span.
-	DelimiterAliasWidget = class extends CM_WidgetType {
-		constructor(private text: string) {
-			super();
-		}
-		eq(other: any) {
-			return other instanceof DelimiterAliasWidget && other.text === this.text;
-		}
-		toDOM() {
-			const span = document.createElement("span");
-			span.className = "af-role-alias-widget";
-			span.textContent = this.text;
-			return span;
-		}
-		ignoreEvent() {
-			return false;
-		}
-	};
+// Delimiter "alias" display mode — same wikilink-alias UX pattern:
+// shown in place of the real delimiter while the cursor's elsewhere;
+// emitRole swaps this out for the real literal text (a plain mark,
+// not this widget) the moment the cursor enters the span.
+class DelimiterAliasWidget extends WidgetType {
+	constructor(private text: string) {
+		super();
+	}
+	eq(other: WidgetType): boolean {
+		return other instanceof DelimiterAliasWidget && other.text === this.text;
+	}
+	toDOM(_view: EditorView): HTMLElement {
+		const span = createEl("span", { cls: "af-role-alias-widget", text: this.text });
+		return span;
+	}
+	ignoreEvent(_event: Event): boolean {
+		return false;
+	}
 }
 
 export function isCmAvailable(): boolean {
@@ -129,9 +102,9 @@ function rangeTouchesSelection(selection: { ranges: readonly { from: number; to:
 function getFileForView(view: EditorView, plugin: DecoratablePlugin) {
 	if (editorInfoField) {
 		try {
-			const info: any = (view.state as any).field(editorInfoField, false);
+			const info = view.state.field<{ file?: TAbstractFile } | null>(editorInfoField, false);
 			if (info && info.file) return info.file;
-		} catch (e) {
+		} catch {
 			/* fall through to the active-file fallback below */
 		}
 	}
@@ -149,7 +122,7 @@ function isPosVisible(view: EditorView, pos: number): boolean {
 }
 
 function buildDecorations(view: EditorView, plugin: DecoratablePlugin): { deco: unknown; atomic: unknown } {
-	const builder: RangeSetBuilder<any> = new CM_RangeSetBuilder();
+	const builder = new RangeSetBuilder<unknown>();
 
 	const file = getFileForView(view, plugin);
 	if (!shouldApplyToFile(plugin, file, plugin.app)) {
@@ -198,30 +171,30 @@ function buildDecorations(view: EditorView, plugin: DecoratablePlugin): { deco: 
 			// alongside the generic tag appearance, instead of only ever
 			// showing the plain default look.
 			const cls = role.styleDelimiters ? "af-role-tag af-role-tag-shown af-role-" + role.id : "af-role-tag af-role-tag-shown";
-			return { deco: CM_Decoration.mark({ class: cls }), atomic: false };
+			return { deco: Decoration.mark({ class: cls }), atomic: false };
 		}
 		if (mode === "hide") {
-			return { deco: CM_Decoration.replace({}), atomic: true };
+			return { deco: Decoration.replace({}), atomic: true };
 		}
 		if (mode === "alias") {
 			if (active) {
-				return { deco: CM_Decoration.mark({ class: "af-role-tag af-role-tag-active" }), atomic: false };
+				return { deco: Decoration.mark({ class: "af-role-tag af-role-tag-active" }), atomic: false };
 			}
 			const aliasText = side === "open" ? role.aliasOpen : role.aliasClose;
-			if (!aliasText) return { deco: CM_Decoration.replace({}), atomic: true };
-			return { deco: CM_Decoration.replace({ widget: new DelimiterAliasWidget(aliasText) }), atomic: true };
+			if (!aliasText) return { deco: Decoration.replace({}), atomic: true };
+			return { deco: Decoration.replace({ widget: new DelimiterAliasWidget(aliasText) }), atomic: true };
 		}
 		// "auto"
 		return active
-			? { deco: CM_Decoration.mark({ class: "af-role-tag af-role-tag-active" }), atomic: false }
-			: { deco: CM_Decoration.replace({}), atomic: true };
+			? { deco: Decoration.mark({ class: "af-role-tag af-role-tag-active" }), atomic: false }
+			: { deco: Decoration.replace({}), atomic: true };
 	}
 
 	function emitRole(m: RoleMatch) {
 		const active = rangeTouchesSelection(view.state.selection, m.matchStart, m.matchEnd);
 		const openTag = tagDecoration(m.role, active, "open");
 		collected.push({ from: m.matchStart, to: m.contentStart, deco: openTag.deco, atomic: openTag.atomic });
-		collected.push({ from: m.contentStart, to: m.contentEnd, deco: CM_Decoration.mark({ class: "af-role-" + m.role.id }), atomic: false });
+		collected.push({ from: m.contentStart, to: m.contentEnd, deco: Decoration.mark({ class: "af-role-" + m.role.id }), atomic: false });
 		for (const child of m.children) emitRole(child);
 		const closeTag = tagDecoration(m.role, active, "close");
 		collected.push({ from: m.contentEnd, to: m.matchEnd, deco: closeTag.deco, atomic: closeTag.atomic });
@@ -256,8 +229,8 @@ function buildDecorations(view: EditorView, plugin: DecoratablePlugin): { deco: 
 					const openEnd = matchStart + delims.open.length;
 					const closeStart = matchEnd - delims.close.length;
 					if (openEnd > closeStart) continue; // delimiters overlap on a pathologically short match — skip rather than emit a malformed range
-					collected.push({ from: matchStart, to: openEnd, deco: CM_Decoration.replace({}), atomic: true });
-					collected.push({ from: closeStart, to: matchEnd, deco: CM_Decoration.replace({}), atomic: true });
+					collected.push({ from: matchStart, to: openEnd, deco: Decoration.replace({}), atomic: true });
+					collected.push({ from: closeStart, to: matchEnd, deco: Decoration.replace({}), atomic: true });
 				}
 			}
 
@@ -284,7 +257,7 @@ function buildDecorations(view: EditorView, plugin: DecoratablePlugin): { deco: 
 				collected.push({
 					from: line.from,
 					to: line.from,
-					deco: CM_Decoration.line({ class: lineClasses.join(" ") }),
+					deco: Decoration.line({ class: lineClasses.join(" ") }),
 					atomic: false,
 				});
 			}
@@ -293,7 +266,7 @@ function buildDecorations(view: EditorView, plugin: DecoratablePlugin): { deco: 
 				collected.push({
 					from: line.from + cluster.from,
 					to: line.from + cluster.to,
-					deco: CM_Decoration.replace({}),
+					deco: Decoration.replace({}),
 					atomic: true,
 				});
 			}
@@ -318,13 +291,13 @@ function buildDecorations(view: EditorView, plugin: DecoratablePlugin): { deco: 
 			for (const ref of refs) {
 				if (!isPosVisible(view, ref.from)) continue;
 				const numeral = toArabicIndicNumeral(numberMap.get(ref.label) ?? 0);
-				collected.push({ from: ref.from, to: ref.to, deco: CM_Decoration.replace({ widget: new FootnoteRefWidget(numeral) }), atomic: true });
+				collected.push({ from: ref.from, to: ref.to, deco: Decoration.replace({ widget: new FootnoteRefWidget(numeral) }), atomic: true });
 			}
 
 			for (const def of defs) {
 				if (!isPosVisible(view, def.markerFrom)) continue;
 				const numeral = toArabicIndicNumeral(numberMap.get(def.label) ?? 0);
-				collected.push({ from: def.markerFrom, to: def.markerTo, deco: CM_Decoration.replace({ widget: new FootnoteDefMarkerWidget(numeral) }), atomic: true });
+				collected.push({ from: def.markerFrom, to: def.markerTo, deco: Decoration.replace({ widget: new FootnoteDefMarkerWidget(numeral) }), atomic: true });
 			}
 
 			// Separator: once, immediately above the first definition line.
@@ -333,7 +306,7 @@ function buildDecorations(view: EditorView, plugin: DecoratablePlugin): { deco: 
 				collected.push({
 					from: first.lineFrom,
 					to: first.lineFrom,
-					deco: CM_Decoration.widget({ widget: new FootnoteSeparatorWidget(), side: -1, block: true }),
+					deco: Decoration.widget({ widget: new FootnoteSeparatorWidget(), side: -1, block: true }),
 					atomic: false,
 				});
 			}
@@ -361,12 +334,12 @@ function buildDecorations(view: EditorView, plugin: DecoratablePlugin): { deco: 
 	// so atomicRanges below only ever sees genuinely hidden/replaced
 	// ranges, never the visible mark decorations for role content or
 	// shown/active delimiter tags.
-	const atomicBuilder: RangeSetBuilder<any> = new CM_RangeSetBuilder();
+	const atomicBuilder = new RangeSetBuilder<unknown>();
 	let lastTo = -1;
 	for (const r of collected) {
 		if (r.from < lastTo) continue;
 		builder.add(r.from, r.to, r.deco);
-		if (r.atomic && r.to > r.from) atomicBuilder.add(r.from, r.to, CM_Decoration.mark({}));
+			if (r.atomic && r.to > r.from) atomicBuilder.add(r.from, r.to, Decoration.mark({}));
 		lastTo = Math.max(lastTo, r.to);
 	}
 
@@ -374,7 +347,12 @@ function buildDecorations(view: EditorView, plugin: DecoratablePlugin): { deco: 
 }
 
 export function createFormattingViewPlugin(plugin: DecoratablePlugin) {
-	const viewPlugin = CM_ViewPlugin.fromClass(
+	interface FormattingViewPluginValue {
+		decorations: unknown;
+		atomicDecorations: unknown;
+	}
+
+	const viewPlugin = ViewPlugin.fromClass<FormattingViewPluginValue>(
 		class {
 			decorations: unknown;
 			atomicDecorations: unknown;
@@ -391,7 +369,7 @@ export function createFormattingViewPlugin(plugin: DecoratablePlugin) {
 				}
 			}
 		},
-		{ decorations: (v: any) => v.decorations }
+		{ decorations: (v: FormattingViewPluginValue) => v.decorations }
 	);
 
 	if (!cmAvailable) return viewPlugin;
@@ -413,8 +391,8 @@ export function createFormattingViewPlugin(plugin: DecoratablePlugin) {
 	// was first added: mixing atomic and ordinary-editable ranges inside
 	// what CM6 treats as one atomic-range provider doesn't cleanly
 	// collapse each hidden run into a single jump.
-	const atomic = CM_EditorView.atomicRanges.of((view: EditorView) => {
-		return view.plugin(viewPlugin)?.atomicDecorations ?? CM_Decoration.none;
+	const atomic = EditorView.atomicRanges.of((view: EditorView) => {
+		return view.plugin<FormattingViewPluginValue>(viewPlugin)?.atomicDecorations ?? Decoration.none;
 	});
 
 	return [viewPlugin, atomic, createClipboardCleanupExtension(plugin)];
@@ -449,19 +427,20 @@ function cleanClipboardText(text: string, roles: { hidden?: boolean; open?: stri
 }
 
 function createClipboardCleanupExtension(plugin: DecoratablePlugin) {
-	function handle(event: ClipboardEvent, view: EditorView): void {
+	function handle(event: Event, view: EditorView): void {
+		const clipboardEvent = event as ClipboardEvent;
 		const sel = view.state.selection.main;
 		if (sel.empty) return;
 		const raw = view.state.sliceDoc(sel.from, sel.to);
 		const cleaned = cleanClipboardText(raw, getActiveProfile(plugin.settings).roles);
 		if (cleaned === raw) return; // nothing hidden in the selection — let the browser's default handling run
-		event.clipboardData?.setData("text/plain", cleaned);
-		event.preventDefault();
+		clipboardEvent.clipboardData?.setData("text/plain", cleaned);
+		clipboardEvent.preventDefault();
 		if (event.type === "cut") {
 			view.dispatch({ changes: { from: sel.from, to: sel.to, insert: "" } });
 		}
 	}
-	return CM_EditorView.domEventHandlers({
+	return EditorView.domEventHandlers({
 		copy: handle,
 		cut: handle,
 	});

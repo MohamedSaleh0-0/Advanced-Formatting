@@ -1,4 +1,4 @@
-import { Menu, Setting, TextComponent } from "obsidian";
+import { createEl, Menu, Setting, TextComponent } from "obsidian";
 import { BUNDLED_FONTS } from "./bundledFonts";
 
 // Opens a real popup menu (not a Settings-style dropdown — matches what
@@ -66,34 +66,26 @@ export function renderFontFamilyPicker(container: HTMLElement, currentValue: str
 	const dropdownSetting = new Setting(container).setName("Font").addDropdown((dd) => {
 		const select = dd.selectEl;
 
-		const defaultOpt = document.createElement("option");
-		defaultOpt.value = "";
-		defaultOpt.text = "Default (theme font)";
+		const defaultOpt = createEl("option", { value: "", text: "Default (theme font)" });
 		select.appendChild(defaultOpt);
 
-		const bundledGroup = document.createElement("optgroup");
+		const bundledGroup = createEl("optgroup");
 		bundledGroup.label = "Bundled — works immediately, no install needed";
 		for (const font of BUNDLED_FONTS) {
-			const opt = document.createElement("option");
-			opt.value = font.label;
-			opt.text = font.label;
+			const opt = createEl("option", { value: font.label, text: font.label });
 			bundledGroup.appendChild(opt);
 		}
 		select.appendChild(bundledGroup);
 
-		const commonGroup = document.createElement("optgroup");
+		const commonGroup = createEl("optgroup");
 		commonGroup.label = "Common — must already be installed on your system";
 		for (const name of COMMON_INSTALLED_FONTS) {
-			const opt = document.createElement("option");
-			opt.value = name;
-			opt.text = name;
+			const opt = createEl("option", { value: name, text: name });
 			commonGroup.appendChild(opt);
 		}
 		select.appendChild(commonGroup);
 
-		const customOpt = document.createElement("option");
-		customOpt.value = CUSTOM_VALUE;
-		customOpt.text = "Custom...";
+		const customOpt = createEl("option", { value: CUSTOM_VALUE, text: "Custom..." });
 		select.appendChild(customOpt);
 
 		dd.setValue(isCustom ? CUSTOM_VALUE : currentValue);
@@ -118,4 +110,3 @@ export function renderFontFamilyPicker(container: HTMLElement, currentValue: str
 	});
 	if (!isCustom) customRow.settingEl.addClass("af-hidden");
 }
-

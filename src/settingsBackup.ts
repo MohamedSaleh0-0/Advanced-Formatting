@@ -12,7 +12,7 @@ export async function exportSettingsToClipboard(app: App, profile: Profile, lang
 	try {
 		await navigator.clipboard.writeText(json);
 		new Notice(t("noticeCopiedToClipboard", lang));
-	} catch (e) {
+		} catch {
 		// Clipboard permissions can be finicky in an Electron renderer —
 		// fall back to a modal with the text selected for manual copy
 		// rather than silently failing.
@@ -81,7 +81,7 @@ export class ImportSettingsModal extends Modal {
 				let parsed: unknown;
 				try {
 					parsed = JSON.parse(pastedText);
-				} catch (e) {
+				} catch {
 					new Notice(t("noticeInvalidJson", lang));
 					return;
 				}
@@ -96,7 +96,7 @@ export class ImportSettingsModal extends Modal {
 					description: typeof candidate.description === "string" ? candidate.description : "",
 					roles: candidate.roles,
 					typography: mergeTypography(candidate.typography),
-					scope: candidate.scope as Profile["scope"],
+					scope: candidate.scope,
 					quickColors: Array.isArray(candidate.quickColors) ? candidate.quickColors : DEFAULT_QUICK_COLORS.slice(),
 					cssSnippets: Array.isArray(candidate.cssSnippets) ? candidate.cssSnippets : DEFAULT_CSS_SNIPPETS.map((s) => Object.assign({}, s)),
 				};

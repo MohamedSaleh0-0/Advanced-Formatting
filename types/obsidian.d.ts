@@ -1,5 +1,9 @@
 declare module "obsidian" {
 	export function normalizePath(path: string): string;
+	export function createEl<K extends keyof HTMLElementTagNameMap>(
+		tag: K,
+		attrs?: { text?: string; cls?: string; type?: string; value?: string }
+	): HTMLElementTagNameMap[K];
 
 	export class TAbstractFile {
 		path: string;
@@ -45,23 +49,23 @@ declare module "obsidian" {
 
 	export class Workspace {
 		getActiveFile(): TFile | null;
-		on(name: "active-leaf-change" | "file-open", callback: () => any): EventRef;
-		on(name: "editor-menu", callback: (menu: Menu, editor: Editor, info: unknown) => any): EventRef;
+		on(name: "active-leaf-change" | "file-open", callback: () => unknown): EventRef;
+		on(name: "editor-menu", callback: (menu: Menu, editor: Editor, info: unknown) => unknown): EventRef;
 	}
 
-	export interface EventRef {}
+	export type EventRef = object;
 
 	export class MenuItem {
 		setTitle(title: string | DocumentFragment): this;
 		setIcon(icon: string | null): this;
 		setChecked(checked: boolean | null): this;
 		setDisabled(disabled: boolean): this;
-		onClick(callback: (evt: MouseEvent | KeyboardEvent) => any): this;
+		onClick(callback: (evt: MouseEvent | KeyboardEvent) => unknown): this;
 	}
 
 	export class Menu {
 		constructor();
-		addItem(cb: (item: MenuItem) => any): this;
+		addItem(cb: (item: MenuItem) => unknown): this;
 		addSeparator(): this;
 		showAtMouseEvent(evt: MouseEvent): this;
 	}
@@ -101,8 +105,8 @@ declare module "obsidian" {
 	export interface Command {
 		id: string;
 		name: string;
-		editorCallback?: (editor: Editor) => any;
-		callback?: () => any;
+		editorCallback?: (editor: Editor) => unknown;
+		callback?: () => unknown;
 	}
 
 	export interface MarkdownPostProcessorContext {
@@ -130,8 +134,8 @@ declare module "obsidian" {
 		addSettingTab(tab: PluginSettingTab): void;
 		registerEditorExtension(extension: unknown): void;
 		registerMarkdownPostProcessor(processor: MarkdownPostProcessor): void;
-		loadData(): Promise<any>;
-		saveData(data: any): Promise<void>;
+		loadData(): Promise<unknown>;
+		saveData(data: unknown): Promise<void>;
 		onload(): Promise<void> | void;
 		onunload(): void;
 	}
@@ -177,7 +181,7 @@ declare module "obsidian" {
 
 	export class ValueComponent<T> {
 		setValue(value: T): this;
-		onChange(callback: (value: T) => any): this;
+		onChange(callback: (value: T) => unknown): this;
 	}
 
 	export class ToggleComponent extends ValueComponent<boolean> {
@@ -209,7 +213,7 @@ declare module "obsidian" {
 		addOption(value: string, display: string): this;
 		addOptions(options: Record<string, string>): this;
 		setValue(value: string): this;
-		onChange(callback: (value: string) => any): this;
+		onChange(callback: (value: string) => unknown): this;
 	}
 
 	export class ColorComponent extends ValueComponent<string> {
@@ -221,14 +225,14 @@ declare module "obsidian" {
 		setButtonText(text: string): this;
 		setCta(): this;
 		setWarning(): this;
-		onClick(callback: (evt: MouseEvent) => any): this;
+		onClick(callback: (evt: MouseEvent) => unknown): this;
 	}
 
 	export class ExtraButtonComponent {
 		constructor(containerEl: HTMLElement);
 		setIcon(icon: string): this;
 		setTooltip(tooltip: string): this;
-		onClick(callback: () => any): this;
+		onClick(callback: () => unknown): this;
 	}
 
 	export class Setting {
@@ -238,14 +242,14 @@ declare module "obsidian" {
 		setName(name: string): this;
 		setDesc(desc: string): this;
 		setHeading(): this;
-		addText(cb: (component: TextComponent) => any): this;
-		addTextArea(cb: (component: TextAreaComponent) => any): this;
-		addToggle(cb: (component: ToggleComponent) => any): this;
-		addSlider(cb: (component: SliderComponent) => any): this;
-		addDropdown(cb: (component: DropdownComponent) => any): this;
-		addColorPicker(cb: (component: ColorComponent) => any): this;
-		addButton(cb: (component: ButtonComponent) => any): this;
-		addExtraButton(cb: (component: ExtraButtonComponent) => any): this;
+		addText(cb: (component: TextComponent) => unknown): this;
+		addTextArea(cb: (component: TextAreaComponent) => unknown): this;
+		addToggle(cb: (component: ToggleComponent) => unknown): this;
+		addSlider(cb: (component: SliderComponent) => unknown): this;
+		addDropdown(cb: (component: DropdownComponent) => unknown): this;
+		addColorPicker(cb: (component: ColorComponent) => unknown): this;
+		addButton(cb: (component: ButtonComponent) => unknown): this;
+		addExtraButton(cb: (component: ExtraButtonComponent) => unknown): this;
 	}
 
 	export const editorInfoField: unknown;

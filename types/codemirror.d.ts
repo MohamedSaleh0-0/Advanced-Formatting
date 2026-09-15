@@ -2,8 +2,7 @@
 // this plugin uses. Same caveat as types/obsidian.d.ts: no network access
 // to fetch the real @codemirror/view / @codemirror/state packages, so
 // these are authored from documented CM6 API shapes, not verified against
-// the real packages. Obsidian re-exposes these to plugins at runtime via
-// `require("@codemirror/view")` / `require("@codemirror/state")`.
+// the real packages. CodeMirror is imported through these typed declarations.
 
 declare module "@codemirror/state" {
 	export interface Line {
@@ -52,7 +51,7 @@ declare module "@codemirror/view" {
 	export interface EditorView {
 		state: EditorState;
 		visibleRanges: readonly VisibleRange[];
-		plugin<T = any>(plugin: unknown): T | null;
+		plugin<T = unknown>(plugin: unknown): T | null;
 		dispatch(spec: { changes?: { from: number; to: number; insert?: string } }): void;
 	}
 
@@ -91,7 +90,7 @@ declare module "@codemirror/view" {
 
 	export const EditorView: {
 		atomicRanges: Facet<(view: EditorView) => unknown>;
-		domEventHandlers(handlers: { [event: string]: (event: any, view: EditorView) => boolean | void }): unknown;
+		domEventHandlers(handlers: { [event: string]: (event: Event, view: EditorView) => boolean | void }): unknown;
 	};
 
 	export interface PluginValue {

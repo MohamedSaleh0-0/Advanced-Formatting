@@ -180,9 +180,12 @@ export function getActiveProfile(settings: AdvancedFormattingSettings): Profile 
 // Shared by main.ts's hydrateProfile (existing saved settings) and
 // settingsBackup.ts's import (a pasted JSON blob, which could be
 // arbitrarily old or hand-edited) — both need the exact same safety.
-export function mergeTypography(saved: any): TypographySettings {
-	const typography = Object.assign({}, DEFAULT_TYPOGRAPHY, saved || {});
-	const savedHeadings = (saved && saved.headings) || {};
+export function mergeTypography(saved: unknown): TypographySettings {
+	const savedRecord = saved && typeof saved === "object" ? (saved as Record<string, unknown>) : {};
+	const typography = Object.assign({}, DEFAULT_TYPOGRAPHY, savedRecord);
+	const savedHeadings = savedRecord.headings && typeof savedRecord.headings === "object"
+		? (savedRecord.headings as Record<string, unknown>)
+		: {};
 	const headings = {} as typeof DEFAULT_HEADING_STYLES;
 	for (const key of Object.keys(DEFAULT_HEADING_STYLES) as (keyof typeof DEFAULT_HEADING_STYLES)[]) {
 		headings[key] = Object.assign({}, DEFAULT_HEADING_STYLES[key], savedHeadings[key] || {});

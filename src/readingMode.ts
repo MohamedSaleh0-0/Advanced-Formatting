@@ -1,4 +1,4 @@
-import { App, MarkdownPostProcessorContext, Plugin } from "obsidian";
+import { App, MarkdownPostProcessorContext, Plugin, createEl } from "obsidian";
 import { AdvancedFormattingSettings, RoleMatch } from "./types";
 import { getActiveProfile } from "./defaults";
 import { buildRoleRegexes, findLineMatches, resolveDelims } from "./delimiters";
@@ -26,8 +26,7 @@ export interface ReadingModePlugin extends Plugin {
 // cursor to reveal-on-focus with (same reason a wikilink alias never
 // shows its target in Reading view either).
 function buildSpanForMatch(m: RoleMatch, text: string): HTMLSpanElement {
-	const span = document.createElement("span");
-	span.className = "af-role-" + m.role.id;
+	const span = createEl("span", { cls: "af-role-" + m.role.id });
 
 	const mode = m.role.delimiterDisplay || "auto";
 	let prefix = "";
@@ -42,9 +41,7 @@ function buildSpanForMatch(m: RoleMatch, text: string): HTMLSpanElement {
 	}
 
 	if (prefix) {
-		const openSpan = document.createElement("span");
-		openSpan.className = "af-role-tag-shown";
-		openSpan.textContent = prefix;
+		const openSpan = createEl("span", { cls: "af-role-tag-shown", text: prefix });
 		span.appendChild(openSpan);
 	}
 
@@ -65,9 +62,7 @@ function buildSpanForMatch(m: RoleMatch, text: string): HTMLSpanElement {
 	}
 
 	if (suffix) {
-		const closeSpan = document.createElement("span");
-		closeSpan.className = "af-role-tag-shown";
-		closeSpan.textContent = suffix;
+		const closeSpan = createEl("span", { cls: "af-role-tag-shown", text: suffix });
 		span.appendChild(closeSpan);
 	}
 

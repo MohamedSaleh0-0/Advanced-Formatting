@@ -56,7 +56,7 @@ export class AdvancedFormattingSettingTab extends PluginSettingTab {
 	redraw(): void {
 		const scrollTop = this.containerEl.scrollTop;
 		this.display();
-		requestAnimationFrame(() => {
+		window.requestAnimationFrame(() => {
 			this.containerEl.scrollTop = scrollTop;
 		});
 	}
@@ -236,9 +236,9 @@ export class AdvancedFormattingSettingTab extends PluginSettingTab {
 		// Typography
 		new Setting(containerEl).setName(t("typographySectionTitle", lang)).setHeading();
 
-		renderFontFamilyPicker(containerEl, viewedProfile.typography.fontFamily, async (value) => {
+		renderFontFamilyPicker(containerEl, viewedProfile.typography.fontFamily, (value) => {
 			viewedProfile.typography.fontFamily = value;
-			await this.plugin.saveAndApply();
+			void this.plugin.saveAndApply();
 		});
 
 		new Setting(containerEl).setName(t("fontSizeLabel", lang)).addSlider((slider) =>
@@ -519,9 +519,9 @@ export class AdvancedFormattingSettingTab extends PluginSettingTab {
 				cls: "af-role-title-input",
 				value: role.label || role.id,
 			});
-			titleInput.addEventListener("change", async () => {
+			titleInput.addEventListener("change", () => {
 				role.label = titleInput.value;
-				await this.plugin.saveAndApply();
+				void this.plugin.saveAndApply();
 			});
 
 			const controls = row.createDiv({ cls: "af-role-row-controls" });

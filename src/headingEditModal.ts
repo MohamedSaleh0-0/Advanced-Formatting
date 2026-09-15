@@ -84,9 +84,9 @@ export class HeadingEditModal extends Modal {
 			})
 		);
 
-		renderFontFamilyPicker(contentEl, style.fontFamily || "", async (value) => {
+		renderFontFamilyPicker(contentEl, style.fontFamily || "", (value) => {
 			style.fontFamily = value;
-			await this.plugin.saveAndApply();
+			void this.plugin.saveAndApply();
 		});
 
 		const cssSetting = new Setting(contentEl).setName(t("customCssLabel", lang)).setDesc(t("customCssDesc", lang));
@@ -95,7 +95,7 @@ export class HeadingEditModal extends Modal {
 				const snippets = getActiveProfile(this.plugin.settings).cssSnippets;
 				openSnippetMenu(evt, snippets, (css) => {
 					style.customCss = style.customCss ? style.customCss + "\n" + css : css;
-					this.plugin.saveAndApply();
+					void this.plugin.saveAndApply();
 					this.onOpen();
 				});
 			})
