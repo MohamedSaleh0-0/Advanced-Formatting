@@ -1,8 +1,7 @@
 import { App, MarkdownPostProcessorContext, Plugin, createEl } from "obsidian";
 import { AdvancedFormattingSettings, RoleMatch } from "./types";
-import { getActiveProfile } from "./defaults";
 import { buildRoleRegexes, findLineMatches, resolveDelims } from "./delimiters";
-import { shouldApplyToFile } from "./scope";
+import { directOptionsToStyle, findDirectMatches, findRoleSyntaxMatches } from "./directSyntax";
 import { convertDigitsToArabicIndic } from "./footnotes";
 import { FORCE_RTL_MARKER, FORCE_LTR_MARKER } from "./direction";
 import { ALIGN_LEFT_MARKER, ALIGN_CENTER_MARKER, ALIGN_RIGHT_MARKER, BOLD_ON_MARKER, BOLD_OFF_MARKER } from "./headingOverrides";
@@ -66,6 +65,13 @@ function buildSpanForMatch(m: RoleMatch, text: string): HTMLSpanElement {
 		span.appendChild(closeSpan);
 	}
 
+	return span;
+}
+
+function buildDirectSpan(match: ReturnType<typeof findDirectMatches>[number], text: string): HTMLSpanElement {
+	const span = createEl("span");
+	span.setAttribute("style", directOptionsToStyle(match.opts));
+	span.textContent = text.slice(match.contentStart, match.contentEnd);
 	return span;
 }
 
@@ -148,14 +154,10 @@ function applyLineOverrides(el: HTMLElement): void {
 
 export function registerReadingModeProcessor(plugin: ReadingModePlugin): void {
 	plugin.registerMarkdownPostProcessor((el: HTMLElement, ctx: MarkdownPostProcessorContext) => {
-		const file = ctx && ctx.sourcePath ? plugin.app.vault.getAbstractFileByPath(ctx.sourcePath) : null;
-		if (!shouldApplyToFile(plugin, file, plugin.app)) return;
-
 		convertFootnoteRefNumerals(el);
 		applyLineOverrides(el);
 
-		const roleRegexes = buildRoleRegexes(getActiveProfile(plugin.settings).roles);
-		if (!roleRegexes.length) return;
+		const roleRegexes = buildRoleRegexes(plugin.settings.roles);
 
 		const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
 		const textNodes: Text[] = [];
@@ -164,6 +166,20 @@ export function registerReadingModeProcessor(plugin: ReadingModePlugin): void {
 
 		for (const node of textNodes) {
 			const text = node.nodeValue || "";
+			const directMatches = [...findDirectMatches(text), ...findRoleSyntaxMatches(text, plugin.settings.roles)].sort((a, b) => a.matchStart - b.matchStart);
+			if (directMatches.length) {
+				const frag = document.createDocumentFragment();
+				let last = 0;
+				for (const m of directMatches) {
+					if (m.matchStart > last) frag.appendChild(document.createTextNode(text.slice(last, m.matchStart)));
+					frag.appendChild(buildDirectSpan(m, text));
+					last = m.matchEnd;
+				}
+				if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+				if (node.parentNode) node.parentNode.replaceChild(frag, node);
+				continue;
+			}
+			if (!roleRegexes.length) continue;
 			const matches = findLineMatches(text, 0, roleRegexes);
 			if (!matches.length) continue;
 

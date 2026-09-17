@@ -1,7 +1,6 @@
 import { App, Modal, Setting } from "obsidian";
 import { AdvancedFormattingSettings, HeadingAlign, HeadingKey, HeadingStyle } from "./types";
 import { t, tn } from "./i18n";
-import { getActiveProfile } from "./defaults";
 import { openSnippetMenu, renderFontFamilyPicker } from "./uiHelpers";
 
 export interface SavesSettings {
@@ -92,7 +91,7 @@ export class HeadingEditModal extends Modal {
 		const cssSetting = new Setting(contentEl).setName(t("customCssLabel", lang)).setDesc(t("customCssDesc", lang));
 		cssSetting.addButton((btn) =>
 			btn.setButtonText(t("snippetsBtn", lang)).onClick((evt) => {
-				const snippets = getActiveProfile(this.plugin.settings).cssSnippets;
+				const snippets = this.plugin.settings.cssSnippets;
 				openSnippetMenu(evt, snippets, (css) => {
 					style.customCss = style.customCss ? style.customCss + "\n" + css : css;
 					void this.plugin.saveAndApply();

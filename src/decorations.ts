@@ -1,18 +1,16 @@
-import { App, TAbstractFile, createEl, editorInfoField } from "obsidian";
+import { App, createEl } from "obsidian";
 import { Decoration, EditorView, ViewPlugin, WidgetType, type ViewUpdate } from "@codemirror/view";
 import { RangeSetBuilder } from "@codemirror/state";
-import { AdvancedFormattingSettings, RoleMatch, Delimiters } from "./types";
-import { getActiveProfile } from "./defaults";
-import { buildRoleRegexes, buildOrphanedRegexes, findLineMatches } from "./delimiters";
+import { AdvancedFormattingSettings, RoleMatch } from "./types";
+import { buildRoleRegexes, findLineMatches } from "./delimiters";
+import { directOptionsToStyle, findDirectMatches, findRoleSyntaxMatches } from "./directSyntax";
 import { detectLineDirection, lineMarkerClusterBounds } from "./direction";
 import { detectAlignOverride, detectBoldOverride } from "./headingOverrides";
-import { shouldApplyToFile } from "./scope";
 import { buildFootnoteNumberMap, findFootnoteDefinitions, findFootnoteReferences, toArabicIndicNumeral } from "./footnotes";
 
 export interface DecoratablePlugin {
 	app: App;
 	settings: AdvancedFormattingSettings;
-	orphanedDelimiterPairs?: Delimiters[];
 }
 
 const cmAvailable = true;
@@ -99,21 +97,6 @@ function rangeTouchesSelection(selection: { ranges: readonly { from: number; to:
 	return false;
 }
 
-function getFileForView(view: EditorView, plugin: DecoratablePlugin) {
-	if (editorInfoField) {
-		try {
-			const info = view.state.field<{ file?: TAbstractFile } | null>(editorInfoField, false);
-			if (info && info.file) return info.file;
-		} catch {
-			/* fall through to the active-file fallback below */
-		}
-	}
-	// Fallback (imperfect with multiple split panes open at once, since it
-	// can only know the ACTIVE file, not which file this specific pane
-	// shows) — used only if editorInfoField isn't available.
-	return plugin.app.workspace.getActiveFile();
-}
-
 function isPosVisible(view: EditorView, pos: number): boolean {
 	for (const r of view.visibleRanges) {
 		if (pos >= r.from && pos <= r.to) return true;
@@ -124,13 +107,7 @@ function isPosVisible(view: EditorView, pos: number): boolean {
 function buildDecorations(view: EditorView, plugin: DecoratablePlugin): { deco: unknown; atomic: unknown } {
 	const builder = new RangeSetBuilder<unknown>();
 
-	const file = getFileForView(view, plugin);
-	if (!shouldApplyToFile(plugin, file, plugin.app)) {
-		const empty = builder.finish();
-		return { deco: empty, atomic: empty };
-	}
-
-	const roleRegexes = buildRoleRegexes(getActiveProfile(plugin.settings).roles);
+	const roleRegexes = buildRoleRegexes(plugin.settings.roles);
 
 	// Every entry carries its finished decoration directly (rather than a
 	// role-id/active flag resolved afterward) so footnote widgets can join
@@ -200,9 +177,7 @@ function buildDecorations(view: EditorView, plugin: DecoratablePlugin): { deco: 
 		collected.push({ from: m.contentEnd, to: m.matchEnd, deco: closeTag.deco, atomic: closeTag.atomic });
 	}
 
-	const orphanRegexes = buildOrphanedRegexes(plugin.orphanedDelimiterPairs || []);
-
-	// Direction markers (direction.ts) are independent of roles/orphans —
+	// Direction markers are independent of roles —
 	// always walk visible lines to check for one, not just when there's
 	// role/orphan matching to do.
 	for (const { from, to } of view.visibleRanges) {
@@ -213,27 +188,17 @@ function buildDecorations(view: EditorView, plugin: DecoratablePlugin): { deco: 
 				const matches = findLineMatches(line.text, line.from, roleRegexes);
 				for (const m of matches) emitRole(m);
 			}
-			// Cross-profile clutter cleanup: these pairs matched the
-			// PREVIOUSLY active profile but nothing in the current one
-			// (see computeOrphanedDelimiters in main.ts's switchProfile).
-			// Hides only the delimiter characters themselves — the
-			// content in between stays plain, visible, unstyled text,
-			// same as any other role-less text; this is purely about
-			// clutter, not about applying anyone's styling to it.
-			for (const { delims, regex } of orphanRegexes) {
-				regex.lastIndex = 0;
-				let om: RegExpExecArray | null;
-				while ((om = regex.exec(line.text))) {
-					const matchStart = line.from + om.index;
-					const matchEnd = matchStart + om[0].length;
-					const openEnd = matchStart + delims.open.length;
-					const closeStart = matchEnd - delims.close.length;
-					if (openEnd > closeStart) continue; // delimiters overlap on a pathologically short match — skip rather than emit a malformed range
-					collected.push({ from: matchStart, to: openEnd, deco: Decoration.replace({}), atomic: true });
-					collected.push({ from: closeStart, to: matchEnd, deco: Decoration.replace({}), atomic: true });
-				}
+			for (const m of findDirectMatches(line.text, line.from)) {
+				const style = directOptionsToStyle(m.opts);
+				collected.push({ from: m.matchStart, to: m.contentStart, deco: Decoration.replace({}), atomic: true });
+				collected.push({ from: m.contentStart, to: m.contentEnd, deco: Decoration.mark({ attributes: { style } } as never), atomic: false });
+				collected.push({ from: m.contentEnd, to: m.matchEnd, deco: Decoration.replace({}), atomic: true });
 			}
-
+			for (const m of findRoleSyntaxMatches(line.text, plugin.settings.roles, line.from)) {
+				collected.push({ from: m.matchStart, to: m.contentStart, deco: Decoration.replace({}), atomic: true });
+				collected.push({ from: m.contentStart, to: m.contentEnd, deco: Decoration.mark({ class: "af-role-" + (m.role?.id || "direct"), attributes: { style: directOptionsToStyle(m.opts) } } as never), atomic: false });
+				collected.push({ from: m.contentEnd, to: m.matchEnd, deco: Decoration.replace({}), atomic: true });
+			}
 			// Per-line override markers (direction.ts, headingOverrides.ts):
 			// invisible characters placed just after any block-syntax
 			// prefix (heading #s, list bullet, blockquote >), never at
@@ -419,6 +384,7 @@ const ISOLATE_CHARS = /[\u2066\u2067\u2069]/g;
 // a copy operation actually reads.
 function cleanClipboardText(text: string, roles: { hidden?: boolean; open?: string; close?: string }[]): string {
 	let out = text.replace(ISOLATE_CHARS, "");
+	out = out.replace(/~=\{[^{}\n]*\}/g, "").replace(/=~/g, "");
 	for (const r of roles) {
 		if (!r.hidden || !r.open || !r.close) continue;
 		out = out.split(r.open).join("").split(r.close).join("");
@@ -432,7 +398,7 @@ function createClipboardCleanupExtension(plugin: DecoratablePlugin) {
 		const sel = view.state.selection.main;
 		if (sel.empty) return;
 		const raw = view.state.sliceDoc(sel.from, sel.to);
-		const cleaned = cleanClipboardText(raw, getActiveProfile(plugin.settings).roles);
+		const cleaned = cleanClipboardText(raw, plugin.settings.roles);
 		if (cleaned === raw) return; // nothing hidden in the selection — let the browser's default handling run
 		clipboardEvent.clipboardData?.setData("text/plain", cleaned);
 		clipboardEvent.preventDefault();

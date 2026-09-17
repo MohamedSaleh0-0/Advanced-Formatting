@@ -1,10 +1,10 @@
-import { HeadingKey, Profile } from "./types";
+import { AdvancedFormattingSettings, HeadingKey } from "./types";
 import { SHAPE_PRESETS } from "./defaults";
 
-export function buildStylesheet(profile: Profile): string {
+export function buildStylesheet(profile: AdvancedFormattingSettings): string {
 	let css = "";
 	const t = profile.typography;
-	const SCOPE = "body.af-scope-active ";
+	const SCOPE = "body.af-formatting-active ";
 
 	// 1. Font Family (Excluding Frontmatter & Metadata)
 	if (t.fontFamily) {

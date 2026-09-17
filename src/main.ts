@@ -1,26 +1,23 @@
 import { createEl, Editor, EditorPosition, Notice, Plugin } from "obsidian";
-import { Delimiters, AdvancedFormattingSettings, Profile, Role, ListBulletShape } from "./types";
-import { DEFAULT_SCOPE, DEFAULT_TYPOGRAPHY, DEFAULT_QUICK_COLORS, DEFAULT_CSS_SNIPPETS, defaultRoles, defaultSettings, freshProfile, islamicProfile, getActiveProfile, mergeTypography } from "./defaults";
-import { computeOrphanedDelimiters, resolveDelims, buildRoleRegexes, wrapWithDelims, unwrapDirectFormatting, findEnclosingRoleMatch } from "./delimiters";
+import { AdvancedFormattingSettings, Role, ListBulletShape } from "./types";
+import { DEFAULT_TYPOGRAPHY, DEFAULT_QUICK_COLORS, DEFAULT_CSS_SNIPPETS, defaultRoles, defaultSettings, mergeTypography } from "./defaults";
+import { buildRoleRegexes, unwrapDirectFormatting, findEnclosingRoleMatch } from "./delimiters";
 import { clearFormattingAtRange } from "./clearFormatting";
-import { isolate, tn } from "./i18n";
 import { validateRoles } from "./validation";
-import { shouldApplyToFile } from "./scope";
 import { createFormattingViewPlugin, isCmAvailable } from "./decorations";
 import { registerReadingModeProcessor } from "./readingMode";
 import { buildStylesheet } from "./stylesheet";
 import { AdvancedFormattingSettingTab } from "./settingsTab";
 import { RolePickerModal } from "./rolePicker";
-import { ProfilePickerModal } from "./profilePicker";
 import { FormatSelectionModal } from "./formatSelectionModal";
 import { CustomColorModal } from "./customColorModal";
 import { colorLabel } from "./colorNames";
-import { buildDirectFormatMarkup, defaultDirectFormatOptions, detectBareBoldItalic, detectExistingFormatAroundRole, DirectFormatOptions, findOrBuildEphemeralRole } from "./directFormat";
+import { defaultDirectFormatOptions, detectBareBoldItalic, DirectFormatOptions } from "./directFormat";
+import { buildDirectSyntaxMarkup, findDirectMatches, findRoleSyntaxMatches, unwrapReadableSyntax } from "./directSyntax";
 import { LineDirection, detectLineDirection, setLineDirection } from "./direction";
 import { AlignOverride, BoldOverride, detectAlignOverride, setAlignOverride, detectBoldOverride, setBoldOverride } from "./headingOverrides";
 import { detectHeadingKey, detectListDepth } from "./lineContext";
 import { collectAllDelimiterPairs, stripDelimitersFromText } from "./stripFormatting";
-import { ConfirmModal } from "./confirmModal";
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -31,23 +28,10 @@ function asRecord(value: unknown): UnknownRecord {
 class AdvancedFormattingPlugin extends Plugin {
 	settings!: AdvancedFormattingSettings;
 	private generatedStyleSheet!: CSSStyleSheet;
-	// Delimiter pairs the PREVIOUSLY active profile matched but the
-	// currently active one doesn't — set on each switchProfile() call,
-	// read by decorations.ts to cosmetically hide just those leftover
-	// characters (no role styling) so a switch doesn't clutter the
-	// editor with now-unrecognized delimiter symbols. Deliberately
-	// in-memory only, never saved to disk: resets to empty on reload,
-	// and gets REPLACED (not accumulated) on every subsequent switch —
-	// only reflects the most recent transition, not the whole session's
-	// history of profiles visited. Applies for as long as this session
-	// keeps this profile active, to ANY open note using the old
-	// delimiters, not just whichever note happened to be open at the
-	// moment of the switch.
-	orphanedDelimiterPairs: Delimiters[] = [];
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
-		validateRoles(getActiveProfile(this.settings).roles);
+		validateRoles(this.settings.roles);
 
 		this.generatedStyleSheet = new CSSStyleSheet();
 		const documentWithAdoptedSheets = document as Document & { adoptedStyleSheets: CSSStyleSheet[] };
@@ -57,9 +41,7 @@ class AdvancedFormattingPlugin extends Plugin {
 		];
 		this.applyStylesheet();
 
-		this.updateScopeClass();
-		this.registerEvent(this.app.workspace.on("active-leaf-change", () => this.updateScopeClass()));
-		this.registerEvent(this.app.workspace.on("file-open", () => this.updateScopeClass()));
+		document.body.classList.add("af-formatting-active");
 
 		if (isCmAvailable()) {
 			this.registerEditorExtension(createFormattingViewPlugin(this));
@@ -70,30 +52,16 @@ class AdvancedFormattingPlugin extends Plugin {
 		registerReadingModeProcessor(this);
 		this.addSettingTab(new AdvancedFormattingSettingTab(this.app, this));
 
-		// Only the ACTIVE profile's roles get live commands — switching
-		// profiles unregisters the old ones and registers the new ones
-		// (see switchProfile below), rather than every profile's roles
-		// cluttering the command palette all the time.
-		for (const role of getActiveProfile(this.settings).roles) {
-			this.registerRoleCommand(role);
-		}
-
 		this.addCommand({
 			id: "wrap-with-role-search",
-			name: "Wrap selection with role... (search)",
+			name: "Apply inline role...",
 			editorCallback: (editor: Editor) => {
-				new RolePickerModal(this.app, getActiveProfile(this.settings).roles, editor).open();
+				new RolePickerModal(this.app, this.settings.roles, editor).open();
 			},
 		});
 
-		// Direct/instance formatting — deliberately separate from the role
-		// commands above rather than folded into the role picker: a role is
-		// a saved, reusable, named class; this is one-off MS-Word-style
-		// "format just this selection" with no user-visible settings entry
-		// created. See directFormat.ts for the full design reasoning,
-		// including why this routes through the same role/delimiter engine
-		// as named roles (an auto-generated, hidden, one-off Role) instead
-		// of raw HTML, and why bold/italic stay native Markdown outside it.
+		// One-off formatting is written directly into readable markup; it
+		// never creates a role or command entry.
 		this.addCommand({
 			id: "format-selection",
 			name: "Format selection...",
@@ -135,16 +103,6 @@ class AdvancedFormattingPlugin extends Plugin {
 			editorCallback: (editor: Editor) => this.runSetLineDirection(editor, null),
 		});
 
-		this.addCommand({
-			id: "add-islamic-profile",
-			name: "Add Islamic/Arabic profile",
-			callback: async () => {
-				const p = this.addIslamicProfile();
-				await this.saveAndApply();
-				new Notice(tn("noticeAddedProfile", isolate(p.name), this.settings.uiLanguage));
-			},
-		});
-
 		// Right-click access to both, not just command palette/hotkey —
 		// requested explicitly. Format selection only makes sense with an
 		// active selection; Clear formatting is offered whenever the
@@ -153,12 +111,21 @@ class AdvancedFormattingPlugin extends Plugin {
 		// clear).
 		this.registerEvent(
 			this.app.workspace.on("editor-menu", (menu, editor) => {
-				if (editor.getSelection()) {
+				// Capture the range before the context menu closes; Obsidian can
+				// clear the editor selection while the menu action is dispatched.
+				const selectedRange = editor.getSelection()
+					? { from: editor.getCursor("from"), to: editor.getCursor("to") }
+					: null;
+
+				if (selectedRange) {
 					menu.addItem((item) =>
 						item
 							.setTitle("Format selection...")
 							.setIcon("paintbrush")
-							.onClick(() => this.openFormatSelectionModal(editor))
+							.onClick(() => window.setTimeout(() => {
+								editor.setSelection(selectedRange.from, selectedRange.to);
+								this.openFormatSelectionModal(editor);
+							}, 0))
 					);
 				}
 				menu.addItem((item) =>
@@ -175,15 +142,18 @@ class AdvancedFormattingPlugin extends Plugin {
 				// explicit selection, or — the common case this was asked
 				// for — a bare right-click on a word with nothing
 				// selected, via getWordRangeAtCursor below.
-				const colorizeRange = editor.getSelection() ? null : this.getWordRangeAtCursor(editor);
-				if (editor.getSelection() || colorizeRange) {
-					const profile = getActiveProfile(this.settings);
-					for (const color of profile.quickColors) {
+				const colorizeRange = selectedRange || this.getWordRangeAtCursor(editor);
+				if (colorizeRange) {
+					menu.addSeparator();
+					const quickColors = Array.isArray(this.settings.quickColors) && this.settings.quickColors.length
+						? this.settings.quickColors
+						: DEFAULT_QUICK_COLORS;
+					for (const color of quickColors) {
 						menu.addItem((item) =>
 							item
 								.setTitle(this.colorMenuTitle(color))
 								.onClick(async () => {
-									if (colorizeRange) editor.setSelection(colorizeRange.from, colorizeRange.to);
+									editor.setSelection(colorizeRange.from, colorizeRange.to);
 									await this.runColorize(editor, color);
 								})
 						);
@@ -193,7 +163,7 @@ class AdvancedFormattingPlugin extends Plugin {
 							.setTitle("Colorize: Custom...")
 							.setIcon("palette")
 							.onClick(() => {
-								if (colorizeRange) editor.setSelection(colorizeRange.from, colorizeRange.to);
+								editor.setSelection(colorizeRange.from, colorizeRange.to);
 								new CustomColorModal(this.app, (color) => {
 									void this.runColorize(editor, color);
 								}).open();
@@ -306,7 +276,7 @@ class AdvancedFormattingPlugin extends Plugin {
 				// case, not a real list-structure parser.
 				const listDepth = detectListDepth(curLineText);
 				if (listDepth) {
-					const profile = getActiveProfile(this.settings);
+					const profile = this.settings;
 					const shapes: ListBulletShape[] = ["circle", "square", "diamond"];
 					const idx = listDepth - 1;
 					for (const shape of shapes) {
@@ -328,40 +298,6 @@ class AdvancedFormattingPlugin extends Plugin {
 			})
 		);
 
-		this.addCommand({
-			id: "switch-profile",
-			name: "Switch profile...",
-			callback: () => {
-				new ProfilePickerModal(this.app, this.settings.profiles, (profile) => this.switchProfile(profile.id)).open();
-			},
-		});
-
-		this.addCommand({
-			id: "insert-footnote",
-			name: "Insert footnote",
-			editorCallback: (editor: Editor) => {
-				const text = editor.getValue();
-				const nums: number[] = [];
-				const refRegex = /\[\^(\d+)\]/g;
-				let rm: RegExpExecArray | null;
-				while ((rm = refRegex.exec(text))) nums.push(parseInt(rm[1], 10));
-				const next = nums.length ? Math.max.apply(null, nums) + 1 : 1;
-
-				const cursor = editor.getCursor();
-				editor.replaceRange("[^" + next + "]", cursor);
-
-				const lastLine = editor.lastLine();
-				const lastLineLen = editor.getLine(lastLine).length;
-				const insertPos = { line: lastLine, ch: lastLineLen };
-				const prefix = lastLineLen === 0 ? "" : "\n";
-				editor.replaceRange(prefix + "[^" + next + "]: ", insertPos);
-
-				const newLastLine = editor.lastLine();
-				editor.setCursor({ line: newLastLine, ch: editor.getLine(newLastLine).length });
-				editor.focus();
-			},
-		});
-
 		// The manual "get back to plain Markdown before you disable or
 		// uninstall this plugin" escape hatch — see README's Uninstalling
 		// section. There's deliberately no automatic version: Obsidian
@@ -376,11 +312,6 @@ class AdvancedFormattingPlugin extends Plugin {
 			name: "Strip formatting from this note",
 			editorCallback: (editor: Editor) => this.runStripFormattingCurrentNote(editor),
 		});
-		this.addCommand({
-			id: "strip-formatting-vault",
-			name: "Strip formatting from entire vault",
-			callback: () => this.runStripFormattingVault(),
-		});
 	}
 
 	onunload(): void {
@@ -390,26 +321,11 @@ class AdvancedFormattingPlugin extends Plugin {
 				(sheet) => sheet !== this.generatedStyleSheet
 			);
 		}
-		document.body.classList.remove("af-scope-active");
+		document.body.classList.remove("af-formatting-active");
 	}
 
-	updateScopeClass(): void {
-		const file = this.app.workspace.getActiveFile();
-		const apply = shouldApplyToFile(this, file, this.app);
-		document.body.classList.toggle("af-scope-active", apply);
-	}
-
-	// Every role in the ACTIVE profile is also a command, assignable to a
-	// hotkey via Obsidian's own Settings -> Hotkeys. Split out from onload
-	// so a role added/removed/switched-in at runtime gets/loses its
-	// command immediately.
-	//
-	// Inserts regardless of role.enabled: a disabled role is "defined but
-	// inert" (see types.ts) — no matching, no decoration, no CSS — not
-	// "refuses to be used." Blocking the wrap here with a notice
-	// contradicted that everywhere else in the codebase; the delimiters
-	// just sit there with no visible effect until the role's turned back
-	// on, exactly like they would if you typed them by hand.
+	// Context-menu helpers. Quick colors are global and are rendered as
+	// named, swatched entries so the user never has to recognize a hex code.
 	// Right-clicking a plain word with nothing selected is the common case
 	// "Colorize" was asked for — Obsidian's editor-menu doesn't auto-
 	// select the word under a right-click the way some editors do, so
@@ -484,19 +400,36 @@ class AdvancedFormattingPlugin extends Plugin {
 		const to = editor.getCursor("to");
 		const rawSel = editor.getSelection();
 		if (!rawSel) return null;
-		const roles = getActiveProfile(this.settings).roles;
+		const roles = this.settings.roles;
 		if (from.line === to.line) {
 			const lineText = editor.getLine(from.line);
+			const direct = [...findDirectMatches(lineText), ...findRoleSyntaxMatches(lineText, roles)].find((m) => m.matchStart <= from.ch && m.matchEnd >= to.ch);
+			if (direct) {
+				return {
+					from: { line: from.line, ch: direct.matchStart },
+					to: { line: from.line, ch: direct.matchEnd },
+					clean: lineText.slice(direct.contentStart, direct.contentEnd),
+					raw: lineText.slice(direct.matchStart, direct.matchEnd),
+					existingOpts: direct.opts,
+				};
+			}
 			const enclosing = findEnclosingRoleMatch(lineText, from.ch, to.ch, roles);
 			if (enclosing) {
-				const detected = detectExistingFormatAroundRole(lineText, enclosing.matchStart, enclosing.matchEnd, enclosing.role);
-				const span = lineText.slice(detected.from, detected.to);
 				return {
-					from: { line: from.line, ch: detected.from },
-					to: { line: from.line, ch: detected.to },
-					clean: unwrapDirectFormatting(span, roles),
-					raw: span,
-					existingOpts: detected.opts,
+					from: { line: from.line, ch: enclosing.matchStart },
+					to: { line: from.line, ch: enclosing.matchEnd },
+					clean: lineText.slice(enclosing.contentStart, enclosing.contentEnd),
+					raw: lineText.slice(enclosing.matchStart, enclosing.matchEnd),
+					existingOpts: {
+						bold: enclosing.role.bold,
+						italic: enclosing.role.italic,
+						underline: enclosing.role.underline,
+						color: enclosing.role.color || "",
+						backgroundColor: enclosing.role.highlightColor || "",
+						fontFamily: enclosing.role.fontFamily || "",
+						sizeEm: enclosing.role.sizeEm,
+						customCss: enclosing.role.customCss || "",
+					},
 				};
 			}
 			const bare = detectBareBoldItalic(lineText, from.ch, to.ch);
@@ -511,100 +444,11 @@ class AdvancedFormattingPlugin extends Plugin {
 				};
 			}
 		}
-		return { from, to, clean: unwrapDirectFormatting(rawSel, roles), raw: rawSel, existingOpts: null };
+		return { from, to, clean: unwrapReadableSyntax(unwrapDirectFormatting(rawSel, roles), roles), raw: rawSel, existingOpts: null };
 	}
 
-	registerRoleCommand(role: Role): void {
-		this.addCommand({
-			id: "wrap-as-" + role.id,
-			name: "Wrap selection as " + (role.label || role.id),
-			editorCallback: (editor: Editor) => {
-				const delims = resolveDelims(role);
-				if (!delims) return;
-				const target = this.resolveFormattingTarget(editor);
-				if (!target) return;
-				editor.replaceRange(wrapWithDelims(target.clean, delims.open, delims.close), target.from, target.to);
-			},
-		});
-	}
-
-	unregisterRoleCommand(role: Role): void {
-		try {
-			this.app.commands.removeCommand(this.manifest.id + ":wrap-as-" + role.id);
-		} catch {
-			/* best-effort — an orphaned command entry is harmless if this fails */
-		}
-	}
-
-	// Manual, global switch — per your explicit choice: one active profile
-	// at a time, switched by you (command or settings dropdown), not
-	// auto-selected per note by scope. Re-registers role commands so the
-	// command palette / hotkeys reflect the newly active profile's roles,
-	// not the old one's.
-	async switchProfile(id: string): Promise<void> {
-		if (id === this.settings.activeProfileId) return;
-		const oldProfile = getActiveProfile(this.settings);
-		for (const role of oldProfile.roles) this.unregisterRoleCommand(role);
-
-		this.settings.activeProfileId = id;
-
-		const newProfile = getActiveProfile(this.settings);
-		for (const role of newProfile.roles) this.registerRoleCommand(role);
-		this.orphanedDelimiterPairs = computeOrphanedDelimiters(oldProfile, newProfile);
-
-		await this.saveAndApply();
-		new Notice(tn("noticeSwitchedTo", isolate(newProfile.name), this.settings.uiLanguage));
-	}
-
-	createProfile(name: string): Profile {
-		const p = freshProfile("profile" + Date.now(), name);
-		this.settings.profiles.push(p);
-		return p;
-	}
-
-	// Appends the ready-made Islamic/Arabic profile (defaults.ts) — same
-	// "just another profile, deletable through the normal profile-delete
-	// UI, never the shipped default" reasoning as any imported profile.
-	addIslamicProfile(): Profile {
-		const p = islamicProfile();
-		this.settings.profiles.push(p);
-		return p;
-	}
-
-	duplicateProfile(id: string): Profile | null {
-		const src = this.settings.profiles.find((p) => p.id === id);
-		if (!src) return null;
-		const copy: Profile = JSON.parse(JSON.stringify(src));
-		copy.id = "profile" + Date.now();
-		copy.name = src.name + " (copy)";
-		this.settings.profiles.push(copy);
-		return copy;
-	}
-
-	deleteProfile(id: string): void {
-		if (this.settings.profiles.length <= 1) {
-			new Notice(tn("noticeCantDeleteLast", "", this.settings.uiLanguage));
-			return;
-		}
-		const wasActive = this.settings.activeProfileId === id;
-		const deletedRoles = wasActive ? getActiveProfile(this.settings).roles : [];
-		this.settings.profiles = this.settings.profiles.filter((p) => p.id !== id);
-		if (wasActive) {
-			this.settings.activeProfileId = this.settings.profiles[0].id;
-			// Same command-registry swap switchProfile does — deleting the
-			// active profile is itself an implicit switch to the fallback.
-			for (const role of deletedRoles) this.unregisterRoleCommand(role);
-			const fallback = getActiveProfile(this.settings);
-			for (const role of fallback.roles) this.registerRoleCommand(role);
-			this.orphanedDelimiterPairs = computeOrphanedDelimiters({ ...fallback, roles: deletedRoles }, fallback);
-		}
-	}
-
-	// Fills in defaults for any field a profile is missing — used both for
-	// profiles already in the new shape (in case a field was added to the
-	// schema since they were saved) and for the migration path below.
-	private hydrateProfile(rawProfile: unknown): Profile {
-		const p = asRecord(rawProfile);
+	private hydrateSettings(rawSettings: unknown): AdvancedFormattingSettings {
+		const p = asRecord(rawSettings);
 		const typography = mergeTypography(p.typography);
 		if (!typography.listBulletShapes || !typography.listBulletShapes.length) {
 			typography.listBulletShapes = DEFAULT_TYPOGRAPHY.listBulletShapes.slice();
@@ -617,53 +461,24 @@ class AdvancedFormattingPlugin extends Plugin {
 		typography.listBulletShapes = typography.listBulletShapes.map((s: string) =>
 			s === "hollow-circle" ? "circle" : s
 		) as typeof typography.listBulletShapes;
-		const scope = Object.assign({}, DEFAULT_SCOPE, p.scope || {});
-		if (!Array.isArray(scope.folders)) scope.folders = [];
-
-		const quickColors = Array.isArray(p.quickColors) ? p.quickColors : DEFAULT_QUICK_COLORS.slice();
+		const quickColors = Array.isArray(p.quickColors) && p.quickColors.length
+			? (p.quickColors as string[])
+			: DEFAULT_QUICK_COLORS.slice();
 		const cssSnippets = Array.isArray(p.cssSnippets) ? p.cssSnippets : DEFAULT_CSS_SNIPPETS.map((s) => Object.assign({}, s));
 
 		return {
-			id: typeof p.id === "string" && p.id ? p.id : "profile" + Date.now(),
-			name: typeof p.name === "string" && p.name ? p.name : "Profile",
-			description: typeof p.description === "string" ? p.description : "",
 			roles: Array.isArray(p.roles) && p.roles.length ? (p.roles as Role[]) : defaultRoles(),
 			typography,
-			scope,
 			quickColors,
 			cssSnippets,
+			uiLanguage: p.uiLanguage === "ar" ? "ar" : "en",
 		};
 	}
 
 	async loadSettings(): Promise<void> {
 		const data = asRecord(await this.loadData());
-		const uiLanguage: "en" | "ar" = data.uiLanguage === "ar" ? "ar" : "en";
-
-		if (data.profiles && Array.isArray(data.profiles) && data.profiles.length) {
-			// Already the new (profiles) shape.
-			const profiles = data.profiles.map((p) => this.hydrateProfile(p));
-			const requestedActiveProfileId = typeof data.activeProfileId === "string" ? data.activeProfileId : null;
-			const activeProfileId =
-				requestedActiveProfileId && profiles.some((p: Profile) => p.id === requestedActiveProfileId)
-					? requestedActiveProfileId
-					: profiles[0].id;
-			this.settings = { profiles, activeProfileId, uiLanguage };
-		} else if (data.roles || data.typography || data.scope) {
-			// Pre-profiles saved data (single roles/typography/scope at the
-			// top level) — migrate into one "Default" profile so nothing
-			// already configured is lost.
-			const migrated = this.hydrateProfile({
-				id: "default",
-				name: "Default",
-				roles: data.roles,
-				typography: data.typography,
-				scope: data.scope,
-			});
-			this.settings = { profiles: [migrated], activeProfileId: migrated.id, uiLanguage };
-		} else {
-			// Fresh install.
-			this.settings = defaultSettings();
-		}
+		// Pre-release schema: only the new global top-level shape is loaded.
+		this.settings = data.roles || data.typography || data.quickColors || data.cssSnippets ? this.hydrateSettings(data) : defaultSettings();
 	}
 
 	// One-click color-only formatting — the right-click "Colorize" menu
@@ -680,18 +495,12 @@ class AdvancedFormattingPlugin extends Plugin {
 			new Notice("Advanced Formatting: select some text first.");
 			return;
 		}
-		const profile = getActiveProfile(this.settings);
 		// Start from whatever's already there (bold/underline/font/etc.)
 		// and only override color — NOT a blank slate. Colorize is meant
 		// to be a fast "just change the color" action, not "replace all
 		// formatting with color only."
 		const opts = Object.assign({}, target.existingOpts || defaultDirectFormatOptions(), { color });
-		const role = findOrBuildEphemeralRole(profile, opts);
-		if (role && !profile.roles.includes(role)) {
-			profile.roles.push(role);
-		}
-		await this.saveAndApply();
-		editor.replaceRange(buildDirectFormatMarkup(target.clean, opts, role), target.from, target.to);
+		editor.replaceRange(buildDirectSyntaxMarkup(target.clean, opts), target.from, target.to);
 	}
 
 	openFormatSelectionModal(editor: Editor): void {
@@ -700,50 +509,20 @@ class AdvancedFormattingPlugin extends Plugin {
 			new Notice("Advanced Formatting: select some text first.");
 			return;
 		}
-		const profile = getActiveProfile(this.settings);
 		const sel = target.clean;
 		let currentFrom = target.from;
 		let currentTo = target.to;
-		// A role WE created this session that isn't (yet, or ever) reused
-		// by anything else — cleaned up/replaced on every subsequent
-		// change rather than left behind, so toggling through several
-		// combinations in one live-editing session leaves at most ONE
-		// extra role in Settings when the modal closes (the final one
-		// actually used), not one per toggle along the way.
-		let pendingNewRole: Role | null = null;
-
-		const applyLive = async (opts: DirectFormatOptions) => {
-			const role = findOrBuildEphemeralRole(profile, opts);
-			if (pendingNewRole && pendingNewRole !== role) {
-				const idx = profile.roles.indexOf(pendingNewRole);
-				if (idx !== -1) profile.roles.splice(idx, 1);
-				pendingNewRole = null;
-			}
-			if (role && !profile.roles.includes(role)) {
-				profile.roles.push(role);
-				pendingNewRole = role;
-			}
-			// Must land in settings + the regenerated stylesheet BEFORE
-			// replaceRange fires the docChanged transaction that makes
-			// decorations.ts re-read them — otherwise the very first
-			// render of the new role's text has no matching CSS/regex yet.
-			await this.saveAndApply();
-			const markup = buildDirectFormatMarkup(sel, opts, role);
+		const apply = (opts: DirectFormatOptions) => {
+			const markup = buildDirectSyntaxMarkup(sel, opts);
 			editor.replaceRange(markup, currentFrom, currentTo);
 			currentTo = { line: currentFrom.line, ch: currentFrom.ch + markup.length };
 		};
 
 		const cancel = () => {
-			if (pendingNewRole) {
-				const idx = profile.roles.indexOf(pendingNewRole);
-				if (idx !== -1) profile.roles.splice(idx, 1);
-				pendingNewRole = null;
-				void this.saveAndApply();
-			}
 			editor.replaceRange(target.raw, currentFrom, currentTo);
 		};
 
-		new FormatSelectionModal(this.app, sel, applyLive, cancel, target.existingOpts || undefined, profile.cssSnippets).open();
+		new FormatSelectionModal(this.app, sel, apply, cancel, target.existingOpts || undefined).open();
 	}
 
 	runClearFormatting(editor: Editor): void {
@@ -754,7 +533,13 @@ class AdvancedFormattingPlugin extends Plugin {
 			return;
 		}
 		const line = editor.getLine(from.line);
-		const roleRegexes = buildRoleRegexes(getActiveProfile(this.settings).roles);
+		const direct = [...findDirectMatches(line), ...findRoleSyntaxMatches(line, this.settings.roles)].find((m) => m.matchStart <= from.ch && m.matchEnd >= to.ch);
+		if (direct) {
+			editor.replaceRange(line.slice(direct.contentStart, direct.contentEnd), { line: from.line, ch: direct.matchStart }, { line: from.line, ch: direct.matchEnd });
+			editor.setSelection({ line: from.line, ch: direct.matchStart }, { line: from.line, ch: direct.matchStart + direct.contentEnd - direct.contentStart });
+			return;
+		}
+		const roleRegexes = buildRoleRegexes(this.settings.roles);
 		const result = clearFormattingAtRange(line, from.ch, to.ch, roleRegexes);
 		if (!result) {
 			new Notice("Advanced Formatting: no formatting found there.");
@@ -814,51 +599,13 @@ class AdvancedFormattingPlugin extends Plugin {
 		new Notice("Advanced Formatting: stripped this note's formatting markup.");
 	}
 
-	// Vault-wide version — confirmed first (ConfirmModal) since it
-	// rewrites files the user doesn't currently have open, outside that
-	// editor's own undo history, unlike the per-note command above.
-	async runStripFormattingVault(): Promise<void> {
-		new ConfirmModal(
-			this.app,
-			"Strip Advanced Formatting markup from the whole vault?",
-			"Removes every role delimiter this plugin could have written (any profile, including disabled roles and one-off Format-selection/Colorize spans) from every Markdown note. The plain text itself is kept — only this plugin's own markup is removed. This isn't a single undoable action — make sure you have a backup or version control for your vault before running it on a lot of notes.",
-			() => {
-				void (async () => {
-				// vault.process() rather than read()+modify(): these files
-				// aren't open in an editor, so this is the atomic path —
-				// it re-reads immediately before writing, avoiding a lost
-				// write if something else touches the file between this
-				// loop's read and write.
-				const pairs = collectAllDelimiterPairs(this.settings);
-				const files = this.app.vault.getMarkdownFiles();
-				let changedCount = 0;
-				for (const file of files) {
-					let didChange = false;
-					await this.app.vault.process(file, (original) => {
-						const result = stripDelimitersFromText(original, pairs);
-						didChange = result.changed;
-						return result.changed ? result.text : original;
-					});
-					if (didChange) changedCount++;
-				}
-				new Notice(
-					changedCount
-						? "Advanced Formatting: stripped markup from " + changedCount + " note(s)."
-						: "Advanced Formatting: nothing to strip in this vault."
-				);
-				})();
-			}
-		).open();
-	}
-
 	async saveAndApply(): Promise<void> {
 		await this.saveData(this.settings);
 		this.applyStylesheet();
-		this.updateScopeClass();
 	}
 
 	applyStylesheet(): void {
-		if (this.generatedStyleSheet) this.generatedStyleSheet.replaceSync(buildStylesheet(getActiveProfile(this.settings)));
+		if (this.generatedStyleSheet) this.generatedStyleSheet.replaceSync(buildStylesheet(this.settings));
 	}
 }
 

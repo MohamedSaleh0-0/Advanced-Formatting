@@ -8,23 +8,31 @@ import { resolveDelims } from "./delimiters";
 const NATIVE_TOKENS = ["**", "*", "__", "_", "~~", "==", "`", "```", "#"];
 
 export function validateRoles(roles: Role[]): void {
-	const seen = new Map<string, string>();
+	const seenIds = new Map<string, string>();
+	const seenLegacyDelimiters = new Map<string, string>();
 	for (const r of roles) {
-		if (r.enabled === false) continue;
-		const delims = resolveDelims(r);
-		if (!delims || !delims.open || !delims.close) {
-			new Notice(
-				'Advanced Formatting: "' + (r.label || r.id) + '" has no open/close delimiters set and will be ignored until you set them.'
-			);
+		if (!r.id || /[{}\n]/.test(r.id)) {
+			new Notice('Advanced Formatting: every role needs an id without braces or line breaks.');
 			continue;
 		}
+		if (seenIds.has(r.id)) {
+			new Notice('Advanced Formatting: role id "' + r.id + '" is duplicated.');
+		}
+		seenIds.set(r.id, r.label || r.id);
+		if (r.enabled === false) continue;
+		const delims = resolveDelims(r);
+		// New roles use the readable ~= {role:id} text =~ syntax and do
+		// not need custom delimiters. Validate old custom delimiters only
+		// when a legacy role object still contains them.
+		if (!delims || !delims.open || !delims.close) continue;
+
 		const key = delims.open + "\u0000" + delims.close;
-		if (seen.has(key)) {
+		if (seenLegacyDelimiters.has(key)) {
 			new Notice(
-				'Advanced Formatting: "' + (r.label || r.id) + '" uses the exact same open/close as "' + seen.get(key) + '" — give them different delimiters.'
+				'Advanced Formatting: "' + (r.label || r.id) + '" uses the exact same open/close as "' + seenLegacyDelimiters.get(key) + '" — give them different delimiters.'
 			);
 		}
-		seen.set(key, r.label || r.id);
+		seenLegacyDelimiters.set(key, r.label || r.id);
 		// Soft warning only, not a hard block: a Latin letter as the first
 		// character of "open" risks the same RTL-flip bug a full word tag
 		// caused earlier (Unicode bidi picks direction from the first

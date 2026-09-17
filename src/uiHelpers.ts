@@ -1,4 +1,4 @@
-import { createEl, Menu, Setting, TextComponent } from "obsidian";
+import { Menu, Setting, TextComponent } from "obsidian";
 import { BUNDLED_FONTS } from "./bundledFonts";
 
 // Opens a real popup menu (not a Settings-style dropdown — matches what
@@ -64,29 +64,16 @@ export function renderFontFamilyPicker(container: HTMLElement, currentValue: str
 	let customText: TextComponent | null = null;
 
 	const dropdownSetting = new Setting(container).setName("Font").addDropdown((dd) => {
-		const select = dd.selectEl;
-
-		const defaultOpt = createEl("option", { value: "", text: "Default (theme font)" });
-		select.appendChild(defaultOpt);
-
-		const bundledGroup = createEl("optgroup");
-		bundledGroup.label = "Bundled — works immediately, no install needed";
+		// Use the public DropdownComponent API. Directly mutating selectEl
+		// caused the entire settings renderer to abort on the target runtime.
+		dd.addOption("", "Default (theme font)");
 		for (const font of BUNDLED_FONTS) {
-			const opt = createEl("option", { value: font.label, text: font.label });
-			bundledGroup.appendChild(opt);
+			dd.addOption(font.label, "Bundled: " + font.label);
 		}
-		select.appendChild(bundledGroup);
-
-		const commonGroup = createEl("optgroup");
-		commonGroup.label = "Common — must already be installed on your system";
 		for (const name of COMMON_INSTALLED_FONTS) {
-			const opt = createEl("option", { value: name, text: name });
-			commonGroup.appendChild(opt);
+			dd.addOption(name, "Installed: " + name);
 		}
-		select.appendChild(commonGroup);
-
-		const customOpt = createEl("option", { value: CUSTOM_VALUE, text: "Custom..." });
-		select.appendChild(customOpt);
+		dd.addOption(CUSTOM_VALUE, "Custom...");
 
 		dd.setValue(isCustom ? CUSTOM_VALUE : currentValue);
 		dd.onChange((value) => {

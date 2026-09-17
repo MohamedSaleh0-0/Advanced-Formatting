@@ -1,4 +1,4 @@
-import { Delimiters, Profile, Role, RoleMatch, RoleRegex } from "./types";
+import { Delimiters, Role, RoleMatch, RoleRegex } from "./types";
 
 // Resolves a role's matching delimiters — reads open/close directly if
 // present (every role from now on), or derives them from a legacy
@@ -40,8 +40,10 @@ export function isPredominantlyRtl(text: string): boolean {
 // direction right, not something to silently fold into the "hidden"
 // zones without touching the core regex-matching logic in this file.
 export function wrapWithDelims(text: string, open: string, close: string): string {
-	const isolateStart = isPredominantlyRtl(text) ? "\u2067" : "\u2066"; // RLI : LRI
-	return isolateStart + open + text + close + "\u2069"; // PDI
+	// Keep note source readable. Directional isolates previously surrounded
+	// every role and were invisible in the editor but leaked into copies and
+	// created hard-to-debug characters in the saved Markdown.
+	return open + text + close;
 }
 
 // A selection re-drawn over already-formatted text (e.g. re-running
@@ -148,28 +150,6 @@ export function buildRoleRegexes(roles: Role[]): RoleRegex[] {
 // different profiles that happen to use the same delimiters are treated
 // as "the same pair" here on purpose, since this is entirely about
 // visual clutter from the leftover TEXT, not about role semantics.
-export function computeOrphanedDelimiters(oldProfile: Profile, newProfile: Profile): Delimiters[] {
-	const newPairs = new Set<string>();
-	for (const r of newProfile.roles) {
-		if (r.enabled === false) continue;
-		const d = resolveDelims(r);
-		if (d) newPairs.add(d.open + "\u0000" + d.close);
-	}
-
-	const seen = new Set<string>();
-	const orphaned: Delimiters[] = [];
-	for (const r of oldProfile.roles) {
-		if (r.enabled === false) continue;
-		const d = resolveDelims(r);
-		if (!d) continue;
-		const key = d.open + "\u0000" + d.close;
-		if (newPairs.has(key) || seen.has(key)) continue;
-		seen.add(key);
-		orphaned.push(d);
-	}
-	return orphaned;
-}
-
 // Same regex construction as buildRoleRegexes, but for a bare list of
 // delimiter pairs with no role behind them — used only to find and
 // cosmetically hide leftover clutter after a profile switch (see

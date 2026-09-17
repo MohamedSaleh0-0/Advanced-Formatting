@@ -28,7 +28,12 @@ const OUT_FILE = path.join(__dirname, "..", "main.js");
 const ENTRY = "./main";
 
 function readModules() {
-	const files = fs.readdirSync(DIST_DIR).filter((f) => f.endsWith(".js"));
+	const files = fs.readdirSync(DIST_DIR).filter((f) => {
+		if (!f.endsWith(".js")) return false;
+		// tsc does not remove JavaScript for deleted TypeScript modules. Do
+		// not carry those stale modules into the generated plugin bundle.
+		return fs.existsSync(path.join(__dirname, "..", "src", f.replace(/\.js$/, ".ts")));
+	});
 	const modules = {};
 	for (const file of files) {
 		const id = "./" + file.replace(/\.js$/, "");

@@ -20,15 +20,13 @@ import { resolveDelims, buildOrphanedRegexes } from "./delimiters";
 export function collectAllDelimiterPairs(settings: AdvancedFormattingSettings): Delimiters[] {
 	const seen = new Set<string>();
 	const pairs: Delimiters[] = [];
-	for (const profile of settings.profiles) {
-		for (const role of profile.roles) {
+	for (const role of settings.roles) {
 			const d = resolveDelims(role);
 			if (!d || !d.open || !d.close) continue;
 			const key = d.open + "\u0000" + d.close;
 			if (seen.has(key)) continue;
 			seen.add(key);
 			pairs.push(d);
-		}
 	}
 	return pairs;
 }
@@ -48,6 +46,14 @@ export function collectAllDelimiterPairs(settings: AdvancedFormattingSettings): 
 // same constraint and operates one line at a time.
 export function stripDelimitersFromLine(line: string, pairs: Delimiters[]): string {
 	let s = line;
+	// New direct-format syntax. It is intentionally handled separately from
+	// named roles because it has no settings entry or generated identifier.
+	let directChanged = true;
+	while (directChanged) {
+		const next = s.replace(/~=\{[^{}\n]*\}([^\n]*?)=~/g, "$1");
+		directChanged = next !== s;
+		s = next;
+	}
 	if (pairs.length) {
 		const regexes = buildOrphanedRegexes(pairs); // same {delims, regex} construction buildRoleRegexes uses, for a bare pair list with no role behind it
 		let changed = true;

@@ -1,224 +1,123 @@
-import { App, Modal, Setting } from "obsidian";
+import { App } from "obsidian";
 import { DirectFormatOptions, buildPreviewStyle, defaultDirectFormatOptions } from "./directFormat";
-import { openSnippetMenu, renderFontFamilyPicker } from "./uiHelpers";
+import { renderFontFamilyPicker } from "./uiHelpers";
 
-// Opened by the "Format selection..." command while text is selected.
-// Deliberately NOT wired to settings/profiles/saveAndApply directly —
-// every field here is local, throwaway modal state (except cssSnippets,
-// which is read-only reference data for the popup, not modified here).
-// onChange receives the chosen DirectFormatOptions and fires on EVERY
-// change to any field EXCEPT Custom CSS — turning that into the actual
-// document edit requires the active profile (to find/create the backing
-// ephemeral role — see directFormat.ts), which main.ts owns, and main.ts
-// applies it live (replacing the previous live result in place) rather
-// than waiting for a single "Apply" click, per explicit request: toggling
-// a field is enough for the effect to take place immediately, no
-// separate confirmation step. Custom CSS is the one exception — it has
-// its own "Apply CSS" button instead, since applying raw CSS on every
-// keystroke would be disruptive (reformatting the document mid-typo).
-//
-// onCancel reverts the document to exactly what it was before this modal
-// opened (main.ts tracks the original raw text for this) — meaningful
-// now that changes apply live rather than only on a final confirm.
-//
-// If the selection already has direct formatting on it, main.ts passes
-// its current properties in as `initialOpts` (via
-// resolveFormattingTarget's `existingOpts`) — so re-opening this on
-// already-formatted text shows what's actually there (toggles already
-// on, color already picked) instead of a blank form, and un-touched
-// toggles (e.g. underline, if the user only came here to change color)
-// survive into the result rather than silently reverting to off.
-export class FormatSelectionModal extends Modal {
-	private selectedText: string;
-	private onChange: (opts: DirectFormatOptions) => void;
-	private onCancel: () => void;
+// A small editor-anchored popover. It intentionally is not an Obsidian
+// Modal: opening it from the editor context menu must not leave a second,
+// large window floating over the note.
+export class FormatSelectionModal {
 	private opts: DirectFormatOptions;
-	private cssSnippets: { name: string; css: string }[];
-	private previewEl!: HTMLElement;
+	private root: HTMLElement | null = null;
+	private outsideHandler?: (event: MouseEvent) => void;
+	private keyHandler?: (event: KeyboardEvent) => void;
 
 	constructor(
-		app: App,
-		selectedText: string,
-		onChange: (opts: DirectFormatOptions) => void,
-		onCancel: () => void,
-		initialOpts?: DirectFormatOptions,
-		cssSnippets?: { name: string; css: string }[]
+		private _app: App,
+		private selectedText: string,
+		private onApply: (opts: DirectFormatOptions) => void,
+		private onCancel: () => void,
+		initialOpts?: DirectFormatOptions
 	) {
-		super(app);
-		this.selectedText = selectedText;
-		this.onChange = onChange;
-		this.onCancel = onCancel;
-		this.opts = initialOpts ? Object.assign({}, initialOpts) : defaultDirectFormatOptions();
-		this.cssSnippets = cssSnippets || [];
+		this.opts = Object.assign(defaultDirectFormatOptions(), initialOpts || {});
 	}
 
-	onOpen(): void {
-		const { contentEl } = this;
-		contentEl.empty();
-		contentEl.createEl("h2", { text: "Format selection" });
-		contentEl.createEl("p", {
-			text: "Changes below apply immediately — no need to press Apply, except for Custom CSS.",
-			cls: "af-format-hint",
-		});
+	open(): void {
+		this.close(false);
+		const root = document.body.createDiv({ cls: "af-format-popover" });
+		this.root = root;
+		const header = root.createDiv({ cls: "af-format-popover-header" });
+		header.createEl("strong", { text: "Format selection" });
+		const close = header.createEl("button", { text: "×", cls: "af-format-popover-close" });
+		close.addEventListener("click", () => { this.onCancel(); this.close(false); });
 
-		if (this.selectedText.includes("\n")) {
-			contentEl.createEl("p", {
-				text: "Heads up: this selection spans multiple lines/paragraphs. Direct formatting like this only reliably renders within a single paragraph.",
-				cls: "af-format-warning",
-			});
-		}
+		const controls = root.createDiv({ cls: "af-format-popover-controls" });
+		this.toggle(controls, "Bold", "bold");
+		this.toggle(controls, "Italic", "italic");
+		this.toggle(controls, "Underline", "underline");
+		this.color(controls, "Text color", "color");
+		this.color(controls, "Background", "backgroundColor");
+		renderFontFamilyPicker(controls, this.opts.fontFamily, (value) => { this.opts.fontFamily = value; this.preview(); this.notifyChange(); });
+		this.size(controls);
 
-		new Setting(contentEl).setName("Bold").addToggle((toggle) =>
-			toggle.setValue(this.opts.bold).onChange((value) => {
-				this.opts.bold = value;
-				this.updatePreview();
-				this.onChange(this.opts);
-			})
-		);
+		const preview = root.createDiv({ cls: "af-format-popover-preview" });
+		preview.createEl("span", { text: "Preview" });
+		const sample = preview.createSpan({ cls: "af-format-preview" });
+		(sample as HTMLElement).dataset.preview = "true";
+		this.previewEl = sample;
+		this.preview();
 
-		new Setting(contentEl).setName("Italic").addToggle((toggle) =>
-			toggle.setValue(this.opts.italic).onChange((value) => {
-				this.opts.italic = value;
-				this.updatePreview();
-				this.onChange(this.opts);
-			})
-		);
+		const actions = root.createDiv({ cls: "af-format-popover-actions" });
+		const cancel = actions.createEl("button", { text: "Cancel" });
+		cancel.addEventListener("click", () => { this.onCancel(); this.close(false); });
 
-		new Setting(contentEl).setName("Underline").addToggle((toggle) =>
-			toggle.setValue(this.opts.underline).onChange((value) => {
-				this.opts.underline = value;
-				this.updatePreview();
-				this.onChange(this.opts);
-			})
-		);
-
-		const colorSetting = new Setting(contentEl).setName("Text color");
-		const colorEnabled = !!this.opts.color;
-		colorSetting.addToggle((toggle) =>
-			toggle.setValue(colorEnabled).onChange((value) => {
-				this.opts.color = value ? this.opts.color || "#B3261E" : "";
-				this.updatePreview();
-				this.onChange(this.opts);
-				this.onOpen();
-			})
-		);
-		if (colorEnabled) {
-			colorSetting.addColorPicker((cp) =>
-				cp.setValue(this.opts.color).onChange((value) => {
-					this.opts.color = value;
-					this.updatePreview();
-					this.onChange(this.opts);
-				})
-			);
-		}
-
-		const bgSetting = new Setting(contentEl).setName("Background color");
-		const bgEnabled = !!this.opts.backgroundColor;
-		bgSetting.addToggle((toggle) =>
-			toggle.setValue(bgEnabled).onChange((value) => {
-				this.opts.backgroundColor = value ? this.opts.backgroundColor || "#FFF7DC" : "";
-				this.updatePreview();
-				this.onChange(this.opts);
-				this.onOpen();
-			})
-		);
-		if (bgEnabled) {
-			bgSetting.addColorPicker((cp) =>
-				cp.setValue(this.opts.backgroundColor).onChange((value) => {
-					this.opts.backgroundColor = value;
-					this.updatePreview();
-					this.onChange(this.opts);
-				})
-			);
-		}
-
-		renderFontFamilyPicker(contentEl, this.opts.fontFamily, (value) => {
-			this.opts.fontFamily = value;
-			this.updatePreview();
-			this.onChange(this.opts);
-		});
-
-		const sizeSetting = new Setting(contentEl).setName("Font size");
-		const sizeEnabled = this.opts.sizeEm != null;
-		sizeSetting.addToggle((toggle) =>
-			toggle.setValue(sizeEnabled).onChange((value) => {
-				this.opts.sizeEm = value ? this.opts.sizeEm ?? 1.0 : null;
-				this.updatePreview();
-				this.onChange(this.opts);
-				this.onOpen();
-			})
-		);
-		if (sizeEnabled) {
-			sizeSetting.addSlider((slider) =>
-				slider
-					.setLimits(0.6, 3.0, 0.02)
-					.setValue(this.opts.sizeEm as number)
-					.setDynamicTooltip()
-					.onChange((value) => {
-						this.opts.sizeEm = value;
-						this.updatePreview();
-						this.onChange(this.opts);
-					})
-			);
-		}
-
-		// Custom CSS deliberately does NOT live-apply on every keystroke —
-		// reformatting the document mid-typo would be disruptive in a way
-		// toggling a checkbox or dragging a slider isn't. "Apply CSS"
-		// explicitly triggers the same onChange the other fields use
-		// automatically.
-		const cssSetting = new Setting(contentEl).setName("Custom CSS").setDesc("Extra declarations spliced into the same rule, e.g. letter-spacing: 0.05em");
-		cssSetting.addButton((btn) =>
-			btn.setButtonText("Snippets...").onClick((evt) => {
-				openSnippetMenu(evt, this.cssSnippets, (css) => {
-					this.opts.customCss = this.opts.customCss ? this.opts.customCss + "\n" + css : css;
-					this.updatePreview();
-					this.onOpen();
-				});
-			})
-		);
-		cssSetting.addButton((btn) =>
-			btn
-				.setButtonText("Apply CSS")
-				.setCta()
-				.onClick(() => {
-					this.updatePreview();
-					this.onChange(this.opts);
-				})
-		);
-		new Setting(contentEl).addTextArea((ta) =>
-			ta.setValue(this.opts.customCss).onChange((value) => {
-				this.opts.customCss = value;
-				this.updatePreview();
-			})
-		);
-
-		contentEl.createEl("div", { text: "Preview:", cls: "af-format-preview-label" });
-		this.previewEl = contentEl.createEl("div", { cls: "af-format-preview" });
-		this.updatePreview();
-
-		const buttonRow = new Setting(contentEl);
-		buttonRow.addButton((btn) =>
-			btn.setButtonText("Cancel").onClick(() => {
-				this.onCancel();
-				this.close();
-			})
-		);
-		buttonRow.addButton((btn) =>
-			btn
-				.setButtonText("Done")
-				.setCta()
-				.onClick(() => this.close())
-		);
+		this.position(root);
+		this.outsideHandler = (event) => { if (!root.contains(event.target as Node)) { this.onCancel(); this.close(false); } };
+		this.keyHandler = (event) => { if (event.key === "Escape") { this.onCancel(); this.close(false); } };
+		window.addEventListener("mousedown", this.outsideHandler, true);
+		window.addEventListener("keydown", this.keyHandler, true);
 	}
 
-	private updatePreview(): void {
+	private previewEl!: HTMLElement;
+
+	private toggle(parent: HTMLElement, label: string, key: "bold" | "italic" | "underline"): void {
+		const row = parent.createDiv({ cls: "af-format-popover-row" });
+		const input = row.createEl("input", { type: "checkbox" });
+		input.checked = this.opts[key];
+		row.createEl("label", { text: label });
+		input.addEventListener("change", () => { this.opts[key] = input.checked; this.preview(); this.notifyChange(); });
+	}
+
+	private color(parent: HTMLElement, label: string, key: "color" | "backgroundColor"): void {
+		const row = parent.createDiv({ cls: "af-format-popover-row" });
+		const input = row.createEl("input", { type: "color" });
+		const enabled = !!this.opts[key];
+		input.value = enabled ? this.opts[key] : (key === "color" ? "#B3261E" : "#FFF3CD");
+		const checkbox = row.createEl("input", { type: "checkbox" });
+		checkbox.checked = enabled;
+		row.createEl("label", { text: label });
+		checkbox.addEventListener("change", () => { this.opts[key] = checkbox.checked ? input.value : ""; this.preview(); this.notifyChange(); });
+		input.addEventListener("input", () => { this.opts[key] = input.value; checkbox.checked = true; this.preview(); this.notifyChange(); });
+	}
+
+	private size(parent: HTMLElement): void {
+		const row = parent.createDiv({ cls: "af-format-popover-row" });
+		const input = row.createEl("input", { type: "number" });
+		input.setAttribute("min", "0.6");
+		input.setAttribute("max", "3");
+		input.setAttribute("step", "0.05");
+		input.value = String(this.opts.sizeEm ?? 1);
+		row.createEl("label", { text: "Font size" });
+		input.addEventListener("input", () => { this.opts.sizeEm = Number(input.value) || 1; this.preview(); this.notifyChange(); });
+	}
+
+	private notifyChange(): void {
+		this.onApply(this.opts);
+	}
+
+	private preview(): void {
 		if (!this.previewEl) return;
 		this.previewEl.setAttribute("style", buildPreviewStyle(this.opts));
 		this.previewEl.setText(this.selectedText || "Sample text");
 	}
 
-	onClose(): void {
-		this.contentEl.empty();
+	private position(root: HTMLElement): void {
+		const selection = document.querySelector<HTMLElement>(".cm-selectionBackground");
+		const rect = selection?.getBoundingClientRect();
+		const width = 340;
+		let left = rect ? rect.left : (window.innerWidth - width) / 2;
+		let top = rect ? rect.bottom + 8 : 120;
+		left = Math.max(12, Math.min(left, window.innerWidth - width - 12));
+		if (top + 420 > window.innerHeight) top = Math.max(12, (rect?.top || 120) - 430);
+		root.style.left = left + "px";
+		root.style.top = top + "px";
+	}
+
+	close(_notify = true): void {
+		if (this.outsideHandler) window.removeEventListener("mousedown", this.outsideHandler, true);
+		if (this.keyHandler) window.removeEventListener("keydown", this.keyHandler, true);
+		this.outsideHandler = undefined;
+		this.keyHandler = undefined;
+		this.root?.remove();
+		this.root = null;
 	}
 }
