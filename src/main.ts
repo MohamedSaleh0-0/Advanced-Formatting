@@ -1,4 +1,4 @@
-import { createEl, Editor, EditorPosition, Notice, Plugin } from "obsidian";
+import { Editor, EditorPosition, Notice, Plugin } from "obsidian";
 import { AdvancedFormattingSettings, Role, ListBulletShape } from "./types";
 import { DEFAULT_TYPOGRAPHY, DEFAULT_QUICK_COLORS, DEFAULT_CSS_SNIPPETS, defaultRoles, defaultSettings, mergeTypography } from "./defaults";
 import { buildRoleRegexes, unwrapDirectFormatting, findEnclosingRoleMatch } from "./delimiters";
@@ -154,7 +154,7 @@ class AdvancedFormattingPlugin extends Plugin {
 								// Plain text is intentional: older Obsidian menu
 								// implementations can abort the whole menu when given a
 								// DocumentFragment title.
-								.setTitle("Quick color: " + colorLabel(color))
+								.setTitle(this.colorMenuTitle(color))
 								.setIcon("paintbrush")
 								.onClick(async () => {
 									editor.setSelection(colorizeRange.from, colorizeRange.to);
@@ -164,7 +164,7 @@ class AdvancedFormattingPlugin extends Plugin {
 					}
 					menu.addItem((item) =>
 						item
-							.setTitle("Colorize: Custom...")
+							.setTitle("🎨 Custom color...")
 							.setIcon("palette")
 							.onClick(() => {
 								editor.setSelection(colorizeRange.from, colorizeRange.to);
@@ -328,8 +328,8 @@ class AdvancedFormattingPlugin extends Plugin {
 		document.body.classList.remove("af-formatting-active");
 	}
 
-	// Context-menu helpers. Quick colors are global and are rendered as
-	// named, swatched entries so the user never has to recognize a hex code.
+	// Context-menu helpers. Emoji squares make the palette scannable even
+	// when the menu is narrow or configured colors are visually similar.
 	// Right-clicking a plain word with nothing selected is the common case
 	// "Colorize" was asked for — Obsidian's editor-menu doesn't auto-
 	// select the word under a right-click the way some editors do, so
@@ -338,26 +338,14 @@ class AdvancedFormattingPlugin extends Plugin {
 	// ASCII word characters) to find the word's real boundaries. Returns
 	// null if the cursor isn't actually touching a word (e.g. it's on
 	// whitespace or punctuation).
-	// A plain "Colorize: #E03131" menu item asks the user to recognize a
-	// hex code by eye, which is exactly what was reported as unusable —
-	// nobody memorizes hex values. MenuItem.setIcon can't be tinted
-	// per-item (Obsidian's icons are monochrome Lucide icons, no color
-	// parameter), but setTitle DOES accept a DocumentFragment, not just a
-	// string — so this builds a real colored circle (inline
-	// background-color, unlike the icon slot) next to a human-readable
-	// name from colorNames.ts, falling back to the hex only when no
-	// common color name is a close enough match.
-	colorMenuTitle(hex: string): DocumentFragment {
-		const frag = document.createDocumentFragment();
-		const swatch = createEl("span", { cls: "af-color-swatch" });
-		// The swatch's shape/size/border are themeable via styles.css; only
-		// the actual color is genuinely per-instance data (the user's own
-		// chosen hex), so that's the one value handed over as a CSS custom
-		// property rather than baked into a static class.
-		swatch.style.setProperty("--af-swatch-color", hex);
-		frag.appendChild(swatch);
-		frag.appendChild(document.createTextNode("Colorize: " + colorLabel(hex)));
-		return frag;
+	colorMenuTitle(hex: string): string {
+		const label = colorLabel(hex);
+		const emoji: Record<string, string> = {
+			red: "🟥", yellow: "🟨", green: "🟩", blue: "🟦", orange: "🟧",
+			brown: "🟫", pink: "🩷", grape: "🟪", violet: "🟪", indigo: "🟦",
+			gray: "⬜", black: "⬛", white: "⬜",
+		};
+		return (emoji[label.toLowerCase()] || "🎨") + " " + label;
 	}
 
 	getWordRangeAtCursor(editor: Editor): { from: EditorPosition; to: EditorPosition } | null {
