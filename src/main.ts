@@ -151,7 +151,11 @@ class AdvancedFormattingPlugin extends Plugin {
 					for (const color of quickColors) {
 						menu.addItem((item) =>
 							item
-								.setTitle(this.colorMenuTitle(color))
+								// Plain text is intentional: older Obsidian menu
+								// implementations can abort the whole menu when given a
+								// DocumentFragment title.
+								.setTitle("Quick color: " + colorLabel(color))
+								.setIcon("paintbrush")
 								.onClick(async () => {
 									editor.setSelection(colorizeRange.from, colorizeRange.to);
 									await this.runColorize(editor, color);
@@ -522,7 +526,7 @@ class AdvancedFormattingPlugin extends Plugin {
 			editor.replaceRange(target.raw, currentFrom, currentTo);
 		};
 
-		new FormatSelectionModal(this.app, sel, apply, cancel, target.existingOpts || undefined).open();
+		new FormatSelectionModal(this.app, sel, apply, cancel, target.existingOpts || undefined, this.settings.quickColors).open();
 	}
 
 	runClearFormatting(editor: Editor): void {

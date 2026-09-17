@@ -1,6 +1,8 @@
 import { App } from "obsidian";
 import { DirectFormatOptions, buildPreviewStyle, defaultDirectFormatOptions } from "./directFormat";
 import { renderFontFamilyPicker } from "./uiHelpers";
+import { colorLabel } from "./colorNames";
+import { DEFAULT_QUICK_COLORS } from "./defaults";
 
 // A small editor-anchored popover. It intentionally is not an Obsidian
 // Modal: opening it from the editor context menu must not leave a second,
@@ -16,7 +18,8 @@ export class FormatSelectionModal {
 		private selectedText: string,
 		private onApply: (opts: DirectFormatOptions) => void,
 		private onCancel: () => void,
-		initialOpts?: DirectFormatOptions
+		initialOpts?: DirectFormatOptions,
+		private quickColors: string[] = []
 	) {
 		this.opts = Object.assign(defaultDirectFormatOptions(), initialOpts || {});
 	}
@@ -69,14 +72,36 @@ export class FormatSelectionModal {
 
 	private color(parent: HTMLElement, label: string, key: "color" | "backgroundColor"): void {
 		const row = parent.createDiv({ cls: "af-format-popover-row" });
-		const input = row.createEl("input", { type: "color" });
-		const enabled = !!this.opts[key];
-		input.value = enabled ? this.opts[key] : (key === "color" ? "#B3261E" : "#FFF3CD");
-		const checkbox = row.createEl("input", { type: "checkbox" });
-		checkbox.checked = enabled;
 		row.createEl("label", { text: label });
-		checkbox.addEventListener("change", () => { this.opts[key] = checkbox.checked ? input.value : ""; this.preview(); this.notifyChange(); });
-		input.addEventListener("input", () => { this.opts[key] = input.value; checkbox.checked = true; this.preview(); this.notifyChange(); });
+		const select = row.createEl("select");
+		select.createEl("option", { value: "", text: "No color" });
+		const configuredColors = [...(this.quickColors.length ? this.quickColors : DEFAULT_QUICK_COLORS), this.opts[key]];
+		const colors = Array.from(new Set(configuredColors.filter((value): value is string => Boolean(value))));
+		for (const color of colors) {
+			select.createEl("option", { value: color, text: colorLabel(color) });
+		}
+		select.createEl("option", { value: "__custom__", text: "Custom color..." });
+		const custom = row.createEl("input", { type: "color" });
+		custom.value = this.opts[key] || (key === "color" ? "#E03131" : "#FFF3CD");
+		const isPreset = !this.opts[key] || colors.includes(this.opts[key]);
+		select.value = isPreset ? this.opts[key] : "__custom__";
+		custom.style.display = select.value === "__custom__" ? "inline-block" : "none";
+		select.addEventListener("change", () => {
+			if (select.value === "__custom__") {
+				custom.style.display = "inline-block";
+				this.opts[key] = custom.value;
+			} else {
+				custom.style.display = "none";
+				this.opts[key] = select.value;
+			}
+			this.preview();
+			this.notifyChange();
+		});
+		custom.addEventListener("input", () => {
+			this.opts[key] = custom.value;
+			this.preview();
+			this.notifyChange();
+		});
 	}
 
 	private size(parent: HTMLElement): void {
