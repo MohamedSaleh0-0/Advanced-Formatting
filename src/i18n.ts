@@ -9,7 +9,7 @@ const STRINGS = {
 	alignCenter: { en: "Center", ar: "وسط" },
 	alignLeft: { en: "Left", ar: "يسار" },
 	textColorLabel: { en: "Text color", ar: "لون النص" },
-	fontFamilyDesc: { en: "Choose a bundled, common, or custom font.", ar: "اختر خطًا مرفقًا أو شائعًا أو مخصصًا." },
+	fontFamilyDesc: { en: "Choose a common installed font or enter a custom font name.", ar: "اختر خطًا مثبتًا شائعًا أو أدخل اسم خط مخصص." },
 	boldLabel: { en: "Bold", ar: "غامق" },
 	italicLabel: { en: "Italic", ar: "مائل" },
 	underlineLabel: { en: "Underline", ar: "تحته خط" },

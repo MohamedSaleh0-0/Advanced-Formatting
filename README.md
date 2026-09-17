@@ -42,7 +42,7 @@ Settings are global and organized into:
 - Inline roles;
 - Advanced CSS snippets.
 
-Bundled fonts include Amiri, Noto Naskh Arabic, and Scheherazade New. Common installed fonts and custom font names are also available.
+Font choices include common installed fonts and custom font names. The plugin does not download or install fonts automatically.
 
 ### Custom CSS snippets
 
@@ -79,5 +79,3 @@ The vault-wide strip command, footnote insertion command, profile system, and pr
 ## License
 
 MIT — see [LICENSE](./LICENSE).
-
-Bundled fonts are each licensed separately under the SIL Open Font License; see the `OFL.txt` file alongside each font.

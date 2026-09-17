@@ -1,4 +1,4 @@
-/* Advanced Formatting — bundled fonts and settings-pane styling.
+/* Advanced Formatting — settings-pane styling.
  *
  * These rules replace what used to be set inline from code (element.style.*)
  * — moved here so themes/CSS snippets can override them, and so nothing in
@@ -8,46 +8,6 @@
  * live user configuration (colors, fonts, custom CSS) rather than fixed
  * layout, and is applied to an adopted CSSStyleSheet at runtime.
  */
-
-@font-face {
-	font-family: "Amiri (bundled)";
-	src: url("fonts/amiri/Amiri-Regular.woff2") format("woff2");
-	font-weight: 400;
-	font-style: normal;
-	font-display: swap;
-}
-
-@font-face {
-	font-family: "Amiri (bundled)";
-	src: url("fonts/amiri/Amiri-Bold.woff2") format("woff2");
-	font-weight: 700;
-	font-style: normal;
-	font-display: swap;
-}
-
-@font-face {
-	font-family: "Scheherazade New (bundled)";
-	src: url("fonts/scheherazade-new/ScheherazadeNew-Regular.woff2") format("woff2");
-	font-weight: 400;
-	font-style: normal;
-	font-display: swap;
-}
-
-@font-face {
-	font-family: "Scheherazade New (bundled)";
-	src: url("fonts/scheherazade-new/ScheherazadeNew-Bold.woff2") format("woff2");
-	font-weight: 700;
-	font-style: normal;
-	font-display: swap;
-}
-
-@font-face {
-	font-family: "Noto Naskh Arabic (bundled)";
-	src: url("fonts/noto-naskh-arabic/NotoNaskhArabic-Variable.woff2") format("woff2");
-	font-weight: 100 900;
-	font-style: normal;
-	font-display: swap;
-}
 
 .af-profile-status {
 	font-size: 0.85em;
@@ -74,6 +34,82 @@
 	align-items: center;
 	gap: 6px;
 	flex: 0 0 auto;
+}
+
+.af-snippet-help {
+	max-width: 760px;
+	margin: 0 0 8px;
+}
+
+.af-snippet-examples {
+	display: block;
+	max-width: 760px;
+	padding: 10px 12px;
+	margin: 0 0 12px;
+	white-space: pre-wrap;
+	font-family: var(--font-monospace);
+	font-size: var(--font-small);
+	line-height: 1.5;
+	color: var(--text-muted);
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+}
+
+.af-snippet-card {
+	display: grid;
+	grid-template-columns: minmax(150px, 1fr) minmax(240px, 2fr) auto;
+	align-items: center;
+	gap: 10px;
+	max-width: 900px;
+	padding: 10px;
+	margin: 0 0 8px;
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+}
+
+.af-snippet-card .setting-item,
+.af-snippet-card .setting-editor-extra-setting {
+	min-width: 0;
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+.af-snippet-card .setting-item-control {
+	width: 100%;
+}
+
+.af-snippet-card .af-snippet-name,
+.af-snippet-card .af-snippet-css {
+	box-sizing: border-box;
+	width: 100%;
+}
+
+.af-snippet-card .af-snippet-css {
+	min-height: 64px;
+	resize: vertical;
+}
+
+.af-snippet-remove {
+	justify-self: center;
+}
+
+@media (max-width: 600px) {
+	.af-snippet-card {
+		grid-template-columns: 1fr auto;
+	}
+
+	.af-snippet-card .af-snippet-name,
+	.af-snippet-card .af-snippet-css {
+		grid-column: 1 / -1;
+	}
+
+	.af-snippet-remove {
+		grid-column: 2;
+		grid-row: 1;
+	}
 }
 
 .af-hidden {

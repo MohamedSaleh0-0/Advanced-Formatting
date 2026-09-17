@@ -1,5 +1,4 @@
 import { Menu, Setting, TextComponent } from "obsidian";
-import { BUNDLED_FONTS } from "./bundledFonts";
 
 // Opens a real popup menu (not a Settings-style dropdown — matches what
 // was actually asked for) listing every saved CSS snippet by name;
@@ -30,11 +29,8 @@ export function openSnippetMenu(
 }
 
 // A short, curated list of fonts common enough to be worth one-click
-// access — NOT bundled with the plugin, so (unlike BUNDLED_FONTS,
-// bundledFonts.ts) each of these only works if that exact font is
-// already installed on the user's operating system. Kept separate from
-// the bundled list so the picker below can clearly label which is
-// which, rather than implying every option here is "plug and play."
+// access. These work only when the exact font is already installed on the
+// user's operating system.
 const COMMON_INSTALLED_FONTS: string[] = [
 	"Georgia",
 	"Times New Roman",
@@ -46,9 +42,8 @@ const COMMON_INSTALLED_FONTS: string[] = [
 
 const CUSTOM_VALUE = "__custom__";
 
-// Renders a font-family picker as a dropdown (grouped: bundled fonts
-// that work with zero setup, then common fonts that need to already be
-// installed) PLUS a "Custom..." option that reveals a freeform text
+// Renders a font-family picker as a dropdown (common fonts that need to
+// already be installed) PLUS a "Custom..." option that reveals a freeform text
 // field for typing any other exact, already-installed font name. Two
 // `Setting` rows (dropdown, then the text field — hidden unless
 // "Custom..." is selected) rather than one, since Obsidian's `Setting`
@@ -58,7 +53,7 @@ const CUSTOM_VALUE = "__custom__";
 // = theme default). `onChange` fires with the final font-family value to
 // actually use, from either control.
 export function renderFontFamilyPicker(container: HTMLElement, currentValue: string, onChange: (value: string) => void): void {
-	const knownValues = new Set<string>(["", ...BUNDLED_FONTS.map((f) => f.label), ...COMMON_INSTALLED_FONTS]);
+	const knownValues = new Set<string>(["", ...COMMON_INSTALLED_FONTS]);
 	const isCustom = currentValue !== "" && !knownValues.has(currentValue);
 
 	let customText: TextComponent | null = null;
@@ -67,9 +62,6 @@ export function renderFontFamilyPicker(container: HTMLElement, currentValue: str
 		// Use the public DropdownComponent API. Directly mutating selectEl
 		// caused the entire settings renderer to abort on the target runtime.
 		dd.addOption("", "Default (theme font)");
-		for (const font of BUNDLED_FONTS) {
-			dd.addOption(font.label, "Bundled: " + font.label);
-		}
 		for (const name of COMMON_INSTALLED_FONTS) {
 			dd.addOption(name, "Installed: " + name);
 		}

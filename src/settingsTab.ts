@@ -138,16 +138,24 @@ export class AdvancedFormattingSettingTab extends PluginSettingTab {
 			this.display();
 		}));
 
-		this.section("Advanced", "Reusable CSS snippets for role and selection formatting.");
+		this.section("Advanced", "Reusable CSS snippets for inline roles.");
 		containerEl.createEl("p", {
-			text: "Add CSS declarations only (without braces). Examples: letter-spacing: 0.05em;  font-variant: small-caps;  text-shadow: 0 1px 2px #0004;  border-bottom: 1px solid currentColor;",
-			cls: "setting-item-description",
+			text: "Save declaration fragments here, then reuse them from an inline role. Do not include braces or selectors.",
+			cls: "af-snippet-help setting-item-description",
 		});
+		const examples = containerEl.createEl("code", { cls: "af-snippet-examples" });
+		examples.setText("letter-spacing: 0.05em;\nfont-variant: small-caps;\ntext-shadow: 0 1px 2px #0004;");
 		settings.cssSnippets.forEach((snippet, index) => {
 			const card = containerEl.createDiv({ cls: "af-snippet-card" });
-			new TextComponent(card).setValue(snippet.name).setPlaceholder("Snippet name").onChange(async (v) => { snippet.name = v; await this.plugin.saveAndApply(); });
-			new TextAreaComponent(card).setValue(snippet.css).setPlaceholder("letter-spacing: 0.05em;").onChange(async (v) => { snippet.css = v; await this.plugin.saveAndApply(); });
-			new ExtraButtonComponent(card).setIcon("trash").setTooltip("Remove snippet").onClick(async () => { settings.cssSnippets.splice(index, 1); await this.plugin.saveAndApply(); this.display(); });
+			const name = new TextComponent(card).setValue(snippet.name).setPlaceholder("Snippet name");
+			name.inputEl.classList.add("af-snippet-name");
+			name.onChange(async (v) => { snippet.name = v; await this.plugin.saveAndApply(); });
+			const css = new TextAreaComponent(card).setValue(snippet.css).setPlaceholder("letter-spacing: 0.05em;");
+			css.inputEl.classList.add("af-snippet-css");
+			css.onChange(async (v) => { snippet.css = v; await this.plugin.saveAndApply(); });
+			const remove = new ExtraButtonComponent(card).setIcon("trash").setTooltip("Remove snippet");
+			card.querySelector<HTMLElement>(".clickable-icon")?.classList.add("af-snippet-remove");
+			remove.onClick(async () => { settings.cssSnippets.splice(index, 1); await this.plugin.saveAndApply(); this.display(); });
 		});
 		new Setting(containerEl).addButton((button) => button.setButtonText("Add CSS snippet").onClick(async () => { settings.cssSnippets.push({ name: "New snippet", css: "" }); await this.plugin.saveAndApply(); this.display(); }));
 	}
