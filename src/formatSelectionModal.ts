@@ -85,13 +85,13 @@ export class FormatSelectionModal {
 		custom.value = this.opts[key] || (key === "color" ? "#E03131" : "#FFF3CD");
 		const isPreset = !this.opts[key] || colors.includes(this.opts[key]);
 		select.value = isPreset ? this.opts[key] : "__custom__";
-		custom.style.display = select.value === "__custom__" ? "inline-block" : "none";
+		custom.toggleClass("af-format-custom-color-visible", select.value === "__custom__");
 		select.addEventListener("change", () => {
 			if (select.value === "__custom__") {
-				custom.style.display = "inline-block";
+				custom.addClass("af-format-custom-color-visible");
 				this.opts[key] = custom.value;
 			} else {
-				custom.style.display = "none";
+				custom.removeClass("af-format-custom-color-visible");
 				this.opts[key] = select.value;
 			}
 			this.preview();
@@ -133,8 +133,7 @@ export class FormatSelectionModal {
 		let top = rect ? rect.bottom + 8 : 120;
 		left = Math.max(12, Math.min(left, window.innerWidth - width - 12));
 		if (top + 420 > window.innerHeight) top = Math.max(12, (rect?.top || 120) - 430);
-		root.style.left = left + "px";
-		root.style.top = top + "px";
+		root.setCssProps({ "--af-popover-left": left + "px", "--af-popover-top": top + "px" });
 	}
 
 	close(_notify = true): void {

@@ -96,6 +96,14 @@
 	justify-self: center;
 }
 
+.af-format-custom-color-visible {
+	display: inline-block;
+}
+
+.af-format-popover-row input[type="color"]:not(.af-format-custom-color-visible) {
+	display: none;
+}
+
 @media (max-width: 600px) {
 	.af-snippet-card {
 		grid-template-columns: 1fr auto;
@@ -143,6 +151,8 @@
 
 .af-format-popover {
 	position: fixed;
+	left: var(--af-popover-left, 12px);
+	top: var(--af-popover-top, 120px);
 	z-index: 1000;
 	width: 340px;
 	max-height: min(520px, calc(100vh - 24px));

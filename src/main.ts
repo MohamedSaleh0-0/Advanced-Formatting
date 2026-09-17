@@ -456,7 +456,13 @@ class AdvancedFormattingPlugin extends Plugin {
 		const quickColors = Array.isArray(p.quickColors) && p.quickColors.length
 			? (p.quickColors as string[])
 			: DEFAULT_QUICK_COLORS.slice();
-		const cssSnippets = Array.isArray(p.cssSnippets) ? p.cssSnippets : DEFAULT_CSS_SNIPPETS.map((s) => Object.assign({}, s));
+		const cssSnippets = Array.isArray(p.cssSnippets)
+			? p.cssSnippets.filter((s): s is { name: string; css: string } => {
+				if (!s || typeof s !== "object") return false;
+				const record = s as Record<string, unknown>;
+				return typeof record.name === "string" && typeof record.css === "string";
+			})
+			: DEFAULT_CSS_SNIPPETS.map((s) => Object.assign({}, s));
 
 		return {
 			roles: Array.isArray(p.roles) && p.roles.length ? (p.roles as Role[]) : defaultRoles(),

@@ -35,7 +35,7 @@ export class AdvancedFormattingSettingTab extends PluginSettingTab {
 			dd.addOptions({ en: "English", ar: "العربية" }).setValue(lang || "en").onChange(async (value) => {
 				settings.uiLanguage = value as "en" | "ar";
 				await this.plugin.saveAndApply();
-				this.display();
+				this.update();
 			})
 		);
 
@@ -79,7 +79,7 @@ export class AdvancedFormattingSettingTab extends PluginSettingTab {
 			new Setting(containerEl).setName("Heading " + i).addSlider((s) => s.setLimits(0.7, 3.5, 0.05).setValue(style.sizeEm).setDynamicTooltip().onChange(async (v) => {
 				style.sizeEm = v;
 				await this.plugin.saveAndApply();
-			})).addExtraButton((b) => b.setIcon("settings").setTooltip("Edit heading style").onClick(() => new HeadingEditModal(this.app, this.plugin, key, style, () => this.display()).open()));
+			})).addExtraButton((b) => b.setIcon("settings").setTooltip("Edit heading style").onClick(() => new HeadingEditModal(this.app, this.plugin, key, style, () => this.update()).open()));
 		}
 
 		this.section("Lists", "Choose the bullet shape for each nesting level.");
@@ -101,13 +101,13 @@ export class AdvancedFormattingSettingTab extends PluginSettingTab {
 			row.addExtraButton((button) => button.setIcon("trash").setTooltip("Remove color").onClick(async () => {
 				settings.quickColors.splice(index, 1);
 				await this.plugin.saveAndApply();
-				this.display();
+				this.update();
 			}));
 		});
 		new Setting(containerEl).addButton((button) => button.setButtonText("Add quick color").onClick(async () => {
 			settings.quickColors.push("#888888");
 			await this.plugin.saveAndApply();
-			this.display();
+			this.update();
 		}));
 
 		this.section("Inline roles", "Reusable global styles applied with the Apply inline role command.");
@@ -119,23 +119,23 @@ export class AdvancedFormattingSettingTab extends PluginSettingTab {
 			input.addEventListener("change", () => { role.label = input.value; void this.plugin.saveAndApply(); });
 			const controls = row.createDiv({ cls: "af-role-row-controls" });
 			new ToggleComponent(controls).setTooltip("Enable role").setValue(role.enabled !== false).onChange(async (value) => { role.enabled = value; await this.plugin.saveAndApply(); });
-			new ExtraButtonComponent(controls).setIcon("settings").setTooltip("Edit role").onClick(() => new RoleEditModal(this.app, this.plugin, role, () => this.display()).open());
+			new ExtraButtonComponent(controls).setIcon("settings").setTooltip("Edit role").onClick(() => new RoleEditModal(this.app, this.plugin, role, () => this.update()).open());
 			new ExtraButtonComponent(controls).setIcon("copy").setTooltip("Duplicate role").onClick(async () => {
 				const copy: Role = Object.assign({}, role, { id: role.id + "-copy-" + Date.now(), label: (role.label || role.id) + " (copy)" });
 				settings.roles.splice(index + 1, 0, copy);
 				await this.plugin.saveAndApply();
-				this.display();
+				this.update();
 			});
 			new ExtraButtonComponent(controls).setIcon("trash").setTooltip("Remove role").onClick(async () => {
 				settings.roles.splice(index, 1);
 				await this.plugin.saveAndApply();
-				this.display();
+				this.update();
 			});
 		});
 		new Setting(containerEl).addButton((button) => button.setButtonText("Add role").onClick(async () => {
 			settings.roles.push({ id: "role-" + Date.now(), label: "New role", color: "#888888", bold: false, italic: false, underline: false, fontFamily: "", sizeEm: null, highlightColor: "", customCss: "", enabled: true });
 			await this.plugin.saveAndApply();
-			this.display();
+				this.update();
 		}));
 
 		this.section("Advanced", "Reusable CSS snippets for inline roles.");
@@ -155,8 +155,8 @@ export class AdvancedFormattingSettingTab extends PluginSettingTab {
 			css.onChange(async (v) => { snippet.css = v; await this.plugin.saveAndApply(); });
 			const remove = new ExtraButtonComponent(card).setIcon("trash").setTooltip("Remove snippet");
 			card.querySelector<HTMLElement>(".clickable-icon")?.classList.add("af-snippet-remove");
-			remove.onClick(async () => { settings.cssSnippets.splice(index, 1); await this.plugin.saveAndApply(); this.display(); });
+			remove.onClick(async () => { settings.cssSnippets.splice(index, 1); await this.plugin.saveAndApply(); this.update(); });
 		});
-		new Setting(containerEl).addButton((button) => button.setButtonText("Add CSS snippet").onClick(async () => { settings.cssSnippets.push({ name: "New snippet", css: "" }); await this.plugin.saveAndApply(); this.display(); }));
+		new Setting(containerEl).addButton((button) => button.setButtonText("Add CSS snippet").onClick(async () => { settings.cssSnippets.push({ name: "New snippet", css: "" }); await this.plugin.saveAndApply(); this.update(); }));
 	}
 }

@@ -146,6 +146,7 @@ declare module "obsidian" {
 		containerEl: HTMLElement;
 		constructor(app: App, plugin: Plugin);
 		display(): void;
+		update(): void;
 		hide(): void;
 	}
 
@@ -266,4 +267,6 @@ interface HTMLElement {
 	setText(text: string): void;
 	addClass(cls: string): void;
 	removeClass(cls: string): void;
+	toggleClass(cls: string, value: boolean): void;
+	setCssProps(props: Record<string, string>): void;
 }

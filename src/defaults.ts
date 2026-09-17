@@ -94,7 +94,7 @@ export function defaultRoles(): Role[] {
 export function defaultSettings(): AdvancedFormattingSettings {
 	return {
 		roles: defaultRoles(),
-		typography: JSON.parse(JSON.stringify(DEFAULT_TYPOGRAPHY)),
+		typography: mergeTypography(DEFAULT_TYPOGRAPHY),
 		quickColors: DEFAULT_QUICK_COLORS.slice(),
 		cssSnippets: DEFAULT_CSS_SNIPPETS.map((s) => Object.assign({}, s)),
 		uiLanguage: "en",
