@@ -1,6 +1,6 @@
 {
 	"name": "advanced-formatting",
-	"version": "0.1.3",
+	"version": "1.0.1",
 	"description": "Typography and user-defined inline formatting roles, live in the editor.",
 	"main": "main.js",
 	"scripts": {

@@ -150,6 +150,27 @@ export function buildStylesheet(profile: AdvancedFormattingSettings): string {
 		css += "}\n\n";
 	}
 
+	// Let each rendered line/block choose its base bidi direction from its
+	// first strong Unicode character. This is intentionally applied to the
+	// whole line, not to individual formatted spans: isolating a single
+	// Arabic word makes adjacent inline runs reorder incorrectly. It gives
+	// the same effective direction as "Force right-to-left" for Arabic,
+	// Hebrew, Syriac, Thaana, N'Ko, Adlam, and other RTL scripts, without
+	// writing a direction marker into the note.
+	css +=
+		SCOPE + ".markdown-source-view.mod-cm6 .cm-line,\n" +
+		SCOPE + ".markdown-preview-view p:not(.footnotes p),\n" +
+		SCOPE + ".markdown-preview-view li:not(.footnotes li),\n" +
+		SCOPE + ".markdown-preview-view blockquote,\n" +
+		SCOPE + ".markdown-preview-view h1,\n" +
+		SCOPE + ".markdown-preview-view h2,\n" +
+		SCOPE + ".markdown-preview-view h3,\n" +
+		SCOPE + ".markdown-preview-view h4,\n" +
+		SCOPE + ".markdown-preview-view h5,\n" +
+		SCOPE + ".markdown-preview-view h6 {\n" +
+		"  unicode-bidi: plaintext;\n" +
+		"}\n\n";
+
 	// 7. Nested list bullet shapes — official Obsidian shape variables for
 	// Live Preview, native list-style-type keywords for Reading view.
 	const shapes = t.listBulletShapes || [];

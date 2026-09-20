@@ -1,7 +1,7 @@
 {
   "id": "advanced-formatting",
   "name": "Advanced Formatting",
-  "version": "0.1.3",
+  "version": "1.0.1",
   "minAppVersion": "1.13.0",
   "description": "Typography and user-defined inline formatting roles, live in the editor.",
   "author": "Mohamed Saleh",
