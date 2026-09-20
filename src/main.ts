@@ -395,14 +395,30 @@ class AdvancedFormattingPlugin extends Plugin {
 		const roles = this.settings.roles;
 		if (from.line === to.line) {
 			const lineText = editor.getLine(from.line);
-			const direct = [...findDirectMatches(lineText), ...findRoleSyntaxMatches(lineText, roles)].find((m) => m.matchStart <= from.ch && m.matchEnd >= to.ch);
-			if (direct) {
+			const formattedMatches = [...findDirectMatches(lineText), ...findRoleSyntaxMatches(lineText, roles)];
+			const overlappingMatches = formattedMatches.filter((m) => m.matchStart < to.ch && m.matchEnd > from.ch);
+			if (overlappingMatches.length) {
+				// Live Preview selections cover the visible content, while
+				// CodeMirror's atomic decorations hide the delimiters around
+				// it. Expand to every overlapping raw match so replacing a
+				// larger selection removes those hidden delimiters too instead
+				// of leaving them behind as nested/orphaned syntax.
+				let expandedFrom = from.ch;
+				let expandedTo = to.ch;
+				for (const match of overlappingMatches) {
+					expandedFrom = Math.min(expandedFrom, match.matchStart);
+					expandedTo = Math.max(expandedTo, match.matchEnd);
+				}
+				const expandedRaw = lineText.slice(expandedFrom, expandedTo);
+				const clean = unwrapReadableSyntax(unwrapDirectFormatting(expandedRaw, roles), roles);
+				const singleEnclosing = overlappingMatches.length === 1 &&
+					overlappingMatches[0].matchStart <= from.ch && overlappingMatches[0].matchEnd >= to.ch;
 				return {
-					from: { line: from.line, ch: direct.matchStart },
-					to: { line: from.line, ch: direct.matchEnd },
-					clean: lineText.slice(direct.contentStart, direct.contentEnd),
-					raw: lineText.slice(direct.matchStart, direct.matchEnd),
-					existingOpts: direct.opts,
+					from: { line: from.line, ch: expandedFrom },
+					to: { line: from.line, ch: expandedTo },
+					clean,
+					raw: expandedRaw,
+					existingOpts: singleEnclosing ? overlappingMatches[0].opts : null,
 				};
 			}
 			const enclosing = findEnclosingRoleMatch(lineText, from.ch, to.ch, roles);
