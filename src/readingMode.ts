@@ -25,7 +25,7 @@ export interface ReadingModePlugin extends Plugin {
 // cursor to reveal-on-focus with (same reason a wikilink alias never
 // shows its target in Reading view either).
 function buildSpanForMatch(m: RoleMatch, text: string): HTMLSpanElement {
-	const span = createEl("span", { cls: "af-role-" + m.role.id });
+	const span = createEl("span", { cls: "af-formatted-text af-role-" + m.role.id });
 
 	const mode = m.role.delimiterDisplay || "auto";
 	let prefix = "";
@@ -69,7 +69,7 @@ function buildSpanForMatch(m: RoleMatch, text: string): HTMLSpanElement {
 }
 
 function buildDirectSpan(match: ReturnType<typeof findDirectMatches>[number], text: string): HTMLSpanElement {
-	const span = createEl("span");
+	const span = createEl("span", { cls: "af-formatted-text" });
 	span.setAttribute("style", directOptionsToStyle(match.opts));
 	span.textContent = text.slice(match.contentStart, match.contentEnd);
 	return span;
