@@ -36,14 +36,6 @@
 	flex: 0 0 auto;
 }
 
-/* Keep a formatted run's bidi direction local to that run. `plaintext`
-   derives the run direction from its first strong Unicode character, so
-   Arabic, Hebrew, Syriac, Thaana, N'Ko, Adlam, Latin, and mixed text all
-   behave correctly without changing the direction of the containing line. */
-.af-formatted-text {
-	unicode-bidi: plaintext;
-}
-
 .af-snippet-help {
 	max-width: 760px;
 	margin: 0 0 8px;

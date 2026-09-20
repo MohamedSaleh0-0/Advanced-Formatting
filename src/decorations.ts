@@ -171,7 +171,7 @@ function buildDecorations(view: EditorView, plugin: DecoratablePlugin): { deco: 
 		const active = rangeTouchesSelection(view.state.selection, m.matchStart, m.matchEnd);
 		const openTag = tagDecoration(m.role, active, "open");
 		collected.push({ from: m.matchStart, to: m.contentStart, deco: openTag.deco, atomic: openTag.atomic });
-		collected.push({ from: m.contentStart, to: m.contentEnd, deco: Decoration.mark({ class: "af-formatted-text af-role-" + m.role.id }), atomic: false });
+		collected.push({ from: m.contentStart, to: m.contentEnd, deco: Decoration.mark({ class: "af-role-" + m.role.id }), atomic: false });
 		for (const child of m.children) emitRole(child);
 		const closeTag = tagDecoration(m.role, active, "close");
 		collected.push({ from: m.contentEnd, to: m.matchEnd, deco: closeTag.deco, atomic: closeTag.atomic });
@@ -191,12 +191,12 @@ function buildDecorations(view: EditorView, plugin: DecoratablePlugin): { deco: 
 			for (const m of findDirectMatches(line.text, line.from)) {
 				const style = directOptionsToStyle(m.opts);
 				collected.push({ from: m.matchStart, to: m.contentStart, deco: Decoration.replace({}), atomic: true });
-				collected.push({ from: m.contentStart, to: m.contentEnd, deco: Decoration.mark({ class: "af-formatted-text", attributes: { style } } as never), atomic: false });
+				collected.push({ from: m.contentStart, to: m.contentEnd, deco: Decoration.mark({ attributes: { style } } as never), atomic: false });
 				collected.push({ from: m.contentEnd, to: m.matchEnd, deco: Decoration.replace({}), atomic: true });
 			}
 			for (const m of findRoleSyntaxMatches(line.text, plugin.settings.roles, line.from)) {
 				collected.push({ from: m.matchStart, to: m.contentStart, deco: Decoration.replace({}), atomic: true });
-				collected.push({ from: m.contentStart, to: m.contentEnd, deco: Decoration.mark({ class: "af-formatted-text af-role-" + (m.role?.id || "direct"), attributes: { style: directOptionsToStyle(m.opts) } } as never), atomic: false });
+				collected.push({ from: m.contentStart, to: m.contentEnd, deco: Decoration.mark({ class: "af-role-" + (m.role?.id || "direct"), attributes: { style: directOptionsToStyle(m.opts) } } as never), atomic: false });
 				collected.push({ from: m.contentEnd, to: m.matchEnd, deco: Decoration.replace({}), atomic: true });
 			}
 			// Per-line override markers (direction.ts, headingOverrides.ts):
