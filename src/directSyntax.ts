@@ -4,6 +4,23 @@ import { Role } from "./types";
 export const DIRECT_OPEN = "~={";
 export const DIRECT_CLOSE = "=~";
 
+// Keep the formatting metadata out of the surrounding paragraph's Unicode
+// bidi calculation. LRI/PDI are invisible and affect only the metadata
+// between them; the user's formatted text remains in the paragraph's normal
+// direction context. This works for Arabic, Hebrew, Syriac, Thaana, N'Ko,
+// Adlam, and other RTL scripts without needing a language-specific branch.
+const BIDI_ISOLATE_OPEN = "\u2066";
+const BIDI_ISOLATE_CLOSE = "\u2069";
+const BIDI_ISOLATES = /[\u2066\u2067\u2068\u2069]/g;
+
+function isolateAttributes(attributes: string): string {
+	return BIDI_ISOLATE_OPEN + attributes + BIDI_ISOLATE_CLOSE;
+}
+
+function normalizeAttributes(raw: string): string {
+	return raw.replace(BIDI_ISOLATES, "");
+}
+
 export interface DirectSyntaxMatch {
 	matchStart: number;
 	matchEnd: number;
@@ -20,13 +37,14 @@ function unquote(value: string): string {
 
 export function parseDirectAttributes(raw: string): DirectFormatOptions | null {
 	const opts = defaultDirectFormatOptions();
-	const shorthand = raw.trim();
+	const normalized = normalizeAttributes(raw);
+	const shorthand = normalized.trim();
 	if (/^(#[0-9a-f]{3,8}|[a-z][a-z0-9-]*)$/i.test(shorthand)) {
 		opts.color = shorthand;
 		return opts;
 	}
 
-	const parts = raw.split(";");
+	const parts = normalized.split(";");
 	for (let partIndex = 0; partIndex < parts.length; partIndex++) {
 		const part = parts[partIndex];
 		const token = part.trim();
@@ -56,7 +74,7 @@ export function parseDirectAttributes(raw: string): DirectFormatOptions | null {
 			case "css":
 				// CSS is the final attribute because CSS declarations contain
 				// semicolons themselves. Treat the remainder as one value.
-				opts.customCss = raw.slice(raw.indexOf(":", raw.indexOf(token)) + 1).trim();
+				opts.customCss = normalized.slice(normalized.indexOf(":", normalized.indexOf(token)) + 1).trim();
 				partIndex = parts.length;
 				break;
 			case "role": return null;
@@ -95,10 +113,11 @@ export function findDirectMatches(text: string, textFrom = 0): DirectSyntaxMatch
 
 export function findRoleSyntaxMatches(text: string, roles: Role[], textFrom = 0): DirectSyntaxMatch[] {
 	const result: DirectSyntaxMatch[] = [];
-	const re = /~=\{role:([^}\n]+)\}/g;
+	const re = new RegExp("~=\\{(?:" + BIDI_ISOLATE_OPEN + ")?role:([^}\\n]+)(?:" + BIDI_ISOLATE_CLOSE + ")?\\}", "g");
 	let match: RegExpExecArray | null;
 	while ((match = re.exec(text))) {
-		const role = roles.find((candidate) => candidate.enabled !== false && (candidate.id === match![1] || candidate.label === match![1]));
+		const roleId = normalizeAttributes(match[1]);
+		const role = roles.find((candidate) => candidate.enabled !== false && (candidate.id === roleId || candidate.label === roleId));
 		if (!role) continue;
 		const close = text.indexOf(DIRECT_CLOSE, match.index + match[0].length);
 		if (close === -1) continue;
@@ -128,7 +147,7 @@ export function unwrapReadableSyntax(text: string, roles: Role[]): string {
 }
 
 export function buildRoleSyntaxMarkup(text: string, role: Role): string {
-	return DIRECT_OPEN + "role:" + (role.id || role.label) + "}" + text + DIRECT_CLOSE;
+	return DIRECT_OPEN + isolateAttributes("role:" + (role.id || role.label)) + "}" + text + DIRECT_CLOSE;
 }
 
 export function directOptionsToAttributes(opts: DirectFormatOptions): string {
@@ -156,7 +175,7 @@ export function buildDirectSyntaxMarkup(text: string, opts: DirectFormatOptions)
 	const attrs = opts.color && !opts.bold && !opts.italic && !opts.underline && !opts.backgroundColor && !opts.fontFamily && opts.sizeEm == null && !opts.customCss.trim()
 		? opts.color
 		: directOptionsToAttributes(opts);
-	return DIRECT_OPEN + attrs + "}" + text + DIRECT_CLOSE;
+	return DIRECT_OPEN + isolateAttributes(attrs) + "}" + text + DIRECT_CLOSE;
 }
 
 export function directOptionsToStyle(opts: DirectFormatOptions): string {
