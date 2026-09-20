@@ -135,13 +135,18 @@ export function unwrapReadableSyntax(text: string, roles: Role[]): string {
 	let changed = true;
 	while (changed) {
 		changed = false;
-		const direct = findDirectMatches(value).find((match) => match.matchStart === 0 && match.matchEnd === value.length);
-		const role = findRoleSyntaxMatches(value, roles).find((match) => match.matchStart === 0 && match.matchEnd === value.length);
-		const match = direct || role;
-		if (match) {
-			value = value.slice(match.contentStart, match.contentEnd);
-			changed = true;
-		}
+		// A selection can contain plain text alongside an already-formatted
+		// word. Remove one layer anywhere in that selection, not only when
+		// the selection itself is exactly one complete formatted span. This
+		// also peels malformed-looking nested direct syntax one layer at a
+		// time: the first parser pass may pair an outer opener with an inner
+		// closer, but the next pass then sees and removes the remaining layer.
+		const matches = [...findDirectMatches(value), ...findRoleSyntaxMatches(value, roles)]
+			.sort((a, b) => a.matchStart - b.matchStart || b.matchEnd - a.matchEnd);
+		const match = matches[0];
+		if (!match) break;
+		value = value.slice(0, match.matchStart) + value.slice(match.contentStart, match.contentEnd) + value.slice(match.matchEnd);
+		changed = true;
 	}
 	return value;
 }
