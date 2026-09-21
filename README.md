@@ -14,7 +14,7 @@ One-off formatting uses readable markup:
 Simple bold and italic remain native Markdown. Reusable global roles use the same syntax with a role name:
 
 ```text
-~={role:hadith}text=~
+~={role:question}text=~
 ```
 
 Roles are edited in Settings and applied from the `Apply inline role...` command. Formatting is supported in Live Preview and Reading view.
