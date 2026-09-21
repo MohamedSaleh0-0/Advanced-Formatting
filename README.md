@@ -73,7 +73,7 @@ The vault-wide strip command, footnote insertion command, profile system, and pr
 ## Limitations
 
 - Formatting actions currently operate within one line.
-- Direction overrides are not supported on list lines because they conflict with bullet positioning.
+- Direction overrides are supported on list lines with list-specific marker isolation. Because Obsidian and themes render list markers differently, verify numbered and nested lists in both Live Preview and Reading view after changing a list's direction.
 - The new syntax is intentionally simple and does not support arbitrary nested direct-format spans.
 
 ## License

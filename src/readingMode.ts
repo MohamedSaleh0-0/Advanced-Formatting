@@ -124,8 +124,9 @@ function applyLineOverrides(el: HTMLElement): void {
 		const { markers, content } = scanRenderedTextMarkers(block.textContent || "");
 		if (!markers.length) continue;
 
-		if (markers.includes(FORCE_RTL_MARKER)) block.classList.add("af-force-rtl");
-		if (markers.includes(FORCE_LTR_MARKER)) block.classList.add("af-force-ltr");
+		const isListItem = block.tagName.toLowerCase() === "li";
+		if (markers.includes(FORCE_RTL_MARKER)) block.classList.add(isListItem ? "af-force-list-rtl" : "af-force-rtl");
+		if (markers.includes(FORCE_LTR_MARKER)) block.classList.add(isListItem ? "af-force-list-ltr" : "af-force-ltr");
 		if (markers.includes(ALIGN_LEFT_MARKER)) block.classList.add("af-align-left");
 		if (markers.includes(ALIGN_CENTER_MARKER)) block.classList.add("af-align-center");
 		if (markers.includes(ALIGN_RIGHT_MARKER)) block.classList.add("af-align-right");

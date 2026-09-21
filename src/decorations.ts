@@ -6,6 +6,7 @@ import { buildRoleRegexes, findLineMatches } from "./delimiters";
 import { directOptionsToStyle, findDirectMatches, findRoleSyntaxMatches } from "./directSyntax";
 import { detectLineDirection, lineMarkerClusterBounds } from "./direction";
 import { detectAlignOverride, detectBoldOverride } from "./headingOverrides";
+import { detectListDepth } from "./lineContext";
 import { buildFootnoteNumberMap, findFootnoteDefinitions, findFootnoteReferences, toArabicIndicNumeral } from "./footnotes";
 
 export interface DecoratablePlugin {
@@ -212,7 +213,17 @@ function buildDecorations(view: EditorView, plugin: DecoratablePlugin): { deco: 
 			// happen to be stacked there.
 			const lineClasses: string[] = [];
 			const dir = detectLineDirection(line.text);
-			if (dir) lineClasses.push(dir === "rtl" ? "af-force-rtl" : "af-force-ltr");
+			if (dir) {
+				// Lists get dedicated classes. Their marker is part of the
+				// same CodeMirror line as the text, so a generic direction
+				// rule can also reverse marker ordering/indentation. The
+				// list-specific stylesheet rules isolate that marker while
+				// retaining the requested direction for the item text.
+				const list = !!detectListDepth(line.text);
+				lineClasses.push(list
+					? (dir === "rtl" ? "af-force-list-rtl" : "af-force-list-ltr")
+					: (dir === "rtl" ? "af-force-rtl" : "af-force-ltr"));
+			}
 			const align = detectAlignOverride(line.text);
 			if (align) lineClasses.push("af-align-" + align);
 			const bold = detectBoldOverride(line.text);

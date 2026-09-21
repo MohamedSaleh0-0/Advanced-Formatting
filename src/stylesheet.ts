@@ -274,10 +274,9 @@ export function buildStylesheet(profile: AdvancedFormattingSettings): string {
 	// this is placed LAST and given real ancestor-chain specificity (same
 	// technique as the role rules above) to beat both the base typography
 	// rules and the per-heading-level styles on equal-specificity ties.
-	// `direction` flips text flow; `text-align` follows it so the visual
-	// alignment (and, for lists, native browser bullet-position mirroring
-	// under `direction: rtl`) actually matches rather than just the
-	// underlying character order.
+	// `direction` flips text flow; `text-align` follows it. List lines use
+	// separate classes below because their marker is rendered inside the
+	// same line/block and needs an explicit bidi boundary of its own.
 	css +=
 		SCOPE + ".markdown-source-view.mod-cm6 .cm-line.af-force-rtl,\n" +
 		SCOPE + ".markdown-preview-view .af-force-rtl {\n" +
@@ -290,6 +289,35 @@ export function buildStylesheet(profile: AdvancedFormattingSettings): string {
 		SCOPE + ".markdown-preview-view .af-force-ltr {\n" +
 		"  direction: ltr;\n" +
 		"  text-align: left;\n" +
+		"  unicode-bidi: isolate;\n" +
+		"}\n\n";
+
+	// List direction is intentionally separate from the generic rule. In
+	// Live Preview Obsidian renders the list marker as a formatting span
+	// inside the .cm-line; in Reading view it is the browser's ::marker.
+	// Isolating those marker boxes prevents the requested text direction
+	// from reordering the marker's own contents while still allowing the
+	// marker to mirror to the appropriate side for RTL lists.
+	css +=
+		SCOPE + ".markdown-source-view.mod-cm6 .cm-line.af-force-list-rtl,\n" +
+		SCOPE + ".markdown-preview-view li.af-force-list-rtl {\n" +
+		"  direction: rtl;\n" +
+		"  text-align: right;\n" +
+		"  unicode-bidi: isolate;\n" +
+		"}\n\n";
+	css +=
+		SCOPE + ".markdown-source-view.mod-cm6 .cm-line.af-force-list-ltr,\n" +
+		SCOPE + ".markdown-preview-view li.af-force-list-ltr {\n" +
+		"  direction: ltr;\n" +
+		"  text-align: left;\n" +
+		"  unicode-bidi: isolate;\n" +
+		"}\n\n";
+	css +=
+		SCOPE + ".markdown-source-view.mod-cm6 .cm-line.af-force-list-rtl .cm-formatting-list,\n" +
+		SCOPE + ".markdown-source-view.mod-cm6 .cm-line.af-force-list-ltr .cm-formatting-list,\n" +
+		SCOPE + ".markdown-preview-view li.af-force-list-rtl::marker,\n" +
+		SCOPE + ".markdown-preview-view li.af-force-list-ltr::marker {\n" +
+		"  direction: ltr;\n" +
 		"  unicode-bidi: isolate;\n" +
 		"}\n\n";
 

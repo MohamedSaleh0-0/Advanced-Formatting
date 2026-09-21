@@ -176,42 +176,25 @@ class AdvancedFormattingPlugin extends Plugin {
 				}
 
 				// Direction override applies to whichever line(s) the
-				// cursor/selection touches — a heading, a paragraph, a list
-				// item, doesn't matter, it's a per-line property regardless
-				// of what kind of line it is (direction.ts).
-				//
-				// EXCEPT list lines: forcing direction there was reported
-				// to visibly break the list's own formatting, twice, even
-				// after fixing the marker-position bug that explained the
-				// first report (see PROJECT_CONTEXT.md). The remaining
-				// likely cause — `direction: rtl/ltr` interacting badly
-				// with Obsidian's own bullet-position CSS, which this
-				// plugin doesn't control and can't verify without a live
-				// instance — isn't something to keep guess-fixing a third
-				// time. Scoped out for list lines specifically rather than
-				// removing the whole feature, since it works for
-				// paragraphs/headings/blockquotes. "Clear" is still always
-				// offered, so a stale marker from before this exclusion
-				// can still be removed from a list line.
+				// cursor/selection touches. List lines use their own CSS
+				// classes so the list marker can be handled separately from
+				// the text direction (see stylesheet.ts).
 				const curLineText = editor.getLine(editor.getCursor("from").line);
 				const curDir = detectLineDirection(curLineText);
-				const curLineIsList = !!detectListDepth(curLineText);
-				if (!curLineIsList) {
-					menu.addItem((item) =>
-						item
-							.setTitle("Force right-to-left")
-							.setIcon("align-right")
-							.setChecked(curDir === "rtl")
-							.onClick(() => this.runSetLineDirection(editor, "rtl"))
-					);
-					menu.addItem((item) =>
-						item
-							.setTitle("Force left-to-right")
-							.setIcon("align-left")
-							.setChecked(curDir === "ltr")
-							.onClick(() => this.runSetLineDirection(editor, "ltr"))
-					);
-				}
+				menu.addItem((item) =>
+					item
+						.setTitle("Force right-to-left")
+						.setIcon("align-right")
+						.setChecked(curDir === "rtl")
+						.onClick(() => this.runSetLineDirection(editor, "rtl"))
+				);
+				menu.addItem((item) =>
+					item
+						.setTitle("Force left-to-right")
+						.setIcon("align-left")
+						.setChecked(curDir === "ltr")
+						.onClick(() => this.runSetLineDirection(editor, "ltr"))
+				);
 				if (curDir) {
 					menu.addItem((item) =>
 						item
@@ -566,22 +549,15 @@ class AdvancedFormattingPlugin extends Plugin {
 	// Applies to every line the current selection touches (a heading or a
 	// single-line paragraph is the common case, but a multi-line
 	// quote/list selection reasonably means "flip all of these") — not
-	// just the cursor's own line. Skips list lines when SETTING a
-	// direction (see the editor-menu handler above for why), but always
-	// allows CLEARING one, so a stale marker on a list line from before
-	// this exclusion existed can still be removed.
+	// just the cursor's own line. List lines are supported; their renderer
+	// gets dedicated list-direction classes so list-marker layout can be
+	// handled independently from ordinary paragraph direction.
 	runSetLineDirection(editor: Editor, dir: LineDirection): void {
 		const from = editor.getCursor("from").line;
 		const to = editor.getCursor("to").line;
-		let changed = 0;
 		for (let ln = from; ln <= to; ln++) {
 			const text = editor.getLine(ln);
-			if (dir !== null && detectListDepth(text)) continue;
 			editor.setLine(ln, setLineDirection(text, dir));
-			changed++;
-		}
-		if (!changed && dir !== null) {
-			new Notice("Advanced Formatting: forcing direction on a list line isn't supported (it broke the list's own formatting) — try it on a paragraph or heading instead.");
 		}
 	}
 
