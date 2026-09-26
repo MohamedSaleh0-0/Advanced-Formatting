@@ -89,3 +89,42 @@ export function renderFontFamilyPicker(container: HTMLElement, currentValue: str
 	});
 	if (!isCustom) customRow.settingEl.addClass("af-hidden");
 }
+
+// Shared color control for headings and roles. Empty means no plugin color
+// declaration, so the theme's original color is allowed to show through.
+// The configured quick-color palette is offered as reusable presets, while
+// the native picker remains available for one-off custom values.
+export function renderColorPicker(
+	container: HTMLElement,
+	currentValue: string,
+	quickColors: string[],
+	onChange: (value: string) => void
+): void {
+	const CUSTOM_VALUE = "__custom_color__";
+	const known = Array.from(new Set(quickColors.filter(Boolean)));
+	const isCustom = !!currentValue && !known.includes(currentValue);
+	let picker: { setValue(value: string): unknown; onChange(callback: (value: string) => void): unknown } | null = null;
+
+	const pickerSetting = new Setting(container).setName("Custom color").addColorPicker((cp) => {
+		picker = cp;
+		cp.setValue(isCustom ? currentValue : (currentValue || known[0] || "#888888"));
+		cp.onChange((value) => onChange(value));
+	});
+	if (!isCustom) pickerSetting.settingEl.addClass("af-hidden");
+
+	new Setting(container).setName("Text color").addDropdown((dd) => {
+		dd.addOption("", "Default (theme)");
+		for (const color of known) dd.addOption(color, "Preset: " + color);
+		dd.addOption(CUSTOM_VALUE, "Custom...");
+		dd.setValue(isCustom ? CUSTOM_VALUE : currentValue);
+		dd.onChange((value) => {
+			if (value === CUSTOM_VALUE) {
+				pickerSetting.settingEl.removeClass("af-hidden");
+				return;
+			}
+			pickerSetting.settingEl.addClass("af-hidden");
+			onChange(value);
+		});
+	});
+	void picker;
+}

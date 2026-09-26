@@ -1,7 +1,7 @@
 import { App, Modal, Setting } from "obsidian";
 import { AdvancedFormattingSettings, Role } from "./types";
 import { t } from "./i18n";
-import { openSnippetMenu, renderFontFamilyPicker } from "./uiHelpers";
+import { openSnippetMenu, renderColorPicker, renderFontFamilyPicker } from "./uiHelpers";
 
 export interface SavesSettings {
 	settings: AdvancedFormattingSettings;
@@ -23,7 +23,7 @@ export class RoleEditModal extends Modal {
 		contentEl.dir = lang === "ar" ? "rtl" : "ltr";
 		contentEl.createEl("h2", { text: role.label || role.id });
 		new Setting(contentEl).setName("Syntax").setDesc("Stored as ~={role:name}text=~ in notes.").addText((text) => { text.setValue(role.id); text.inputEl.disabled = true; });
-		new Setting(contentEl).setName(t("textColorLabel", lang)).addColorPicker((cp) => cp.setValue(role.color || "#888888").onChange(async (value) => { role.color = value; await this.plugin.saveAndApply(); }));
+		renderColorPicker(contentEl, role.color, this.plugin.settings.quickColors, async (value) => { role.color = value; await this.plugin.saveAndApply(); });
 		contentEl.createEl("p", { text: t("fontFamilyDesc", lang), cls: "setting-item-description" });
 		renderFontFamilyPicker(contentEl, role.fontFamily || "", (value) => { role.fontFamily = value; void this.plugin.saveAndApply(); });
 		new Setting(contentEl).setName(t("boldLabel", lang)).addToggle((toggle) => toggle.setValue(role.bold).onChange(async (value) => { role.bold = value; await this.plugin.saveAndApply(); }));

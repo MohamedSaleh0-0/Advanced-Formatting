@@ -1,7 +1,7 @@
 import { App, Modal, Setting } from "obsidian";
 import { AdvancedFormattingSettings, HeadingAlign, HeadingKey, HeadingStyle } from "./types";
 import { t, tn } from "./i18n";
-import { openSnippetMenu, renderFontFamilyPicker } from "./uiHelpers";
+import { openSnippetMenu, renderColorPicker, renderFontFamilyPicker } from "./uiHelpers";
 
 export interface SavesSettings {
 	settings: AdvancedFormattingSettings;
@@ -62,12 +62,10 @@ export class HeadingEditModal extends Modal {
 				})
 		);
 
-		new Setting(contentEl).setName(t("textColorLabel", lang)).addColorPicker((cp) =>
-			cp.setValue(style.color || "#000000").onChange(async (value) => {
-				style.color = value;
-				await this.plugin.saveAndApply();
-			})
-		);
+		renderColorPicker(contentEl, style.color, this.plugin.settings.quickColors, async (value) => {
+			style.color = value;
+			await this.plugin.saveAndApply();
+		});
 
 		new Setting(contentEl).setName(t("boldLabel", lang)).addToggle((toggle) =>
 			toggle.setValue(style.bold).onChange(async (value) => {
