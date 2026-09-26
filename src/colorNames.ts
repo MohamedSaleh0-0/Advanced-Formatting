@@ -48,3 +48,17 @@ export function colorLabel(hex: string): string {
 	if (best && best.dist <= MAX_DISTANCE) return best.name;
 	return hex;
 }
+
+const COLOR_EMOJIS: Record<string, string> = {
+	Red: "🟥", Pink: "🩷", Grape: "🟪", Violet: "🟣", Indigo: "🔵",
+	Blue: "🔷", "Sky blue": "🩵", Teal: "🔹", Green: "🟩", Lime: "🟢",
+	Yellow: "🟨", Orange: "🟧", Brown: "🟫", Gray: "⬜", Black: "⬛", White: "⬜",
+};
+
+// Human-facing preset label: keep the stored value as the option value, but
+// show a recognizable color name and emoji instead of an opaque hex string.
+export function colorDisplayLabel(hex: string): string {
+	const name = colorLabel(hex);
+	const emoji = COLOR_EMOJIS[name];
+	return emoji ? emoji + " " + name : "🎨 Custom color";
+}

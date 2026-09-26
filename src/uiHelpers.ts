@@ -1,4 +1,5 @@
 import { Menu, Setting, TextComponent } from "obsidian";
+import { colorDisplayLabel } from "./colorNames";
 
 // Opens a real popup menu (not a Settings-style dropdown — matches what
 // was actually asked for) listing every saved CSS snippet by name;
@@ -114,7 +115,7 @@ export function renderColorPicker(
 
 	new Setting(container).setName("Text color").addDropdown((dd) => {
 		dd.addOption("", "Default (theme)");
-		for (const color of known) dd.addOption(color, "Preset: " + color);
+		for (const color of known) dd.addOption(color, colorDisplayLabel(color));
 		dd.addOption(CUSTOM_VALUE, "Custom...");
 		dd.setValue(isCustom ? CUSTOM_VALUE : currentValue);
 		dd.onChange((value) => {
