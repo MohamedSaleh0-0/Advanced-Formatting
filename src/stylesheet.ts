@@ -327,6 +327,15 @@ export function buildStylesheet(profile: AdvancedFormattingSettings): string {
 		"  direction: ltr;\n" +
 		"  unicode-bidi: isolate;\n" +
 		"}\n\n";
+	css +=
+		SCOPE + ".markdown-source-view.mod-cm6 .cm-line.af-force-list-rtl .task-list-item-checkbox,\n" +
+		SCOPE + ".markdown-source-view.mod-cm6 .cm-line.af-force-list-ltr .task-list-item-checkbox,\n" +
+		SCOPE + ".markdown-preview-view li.af-force-list-rtl > .task-list-item-checkbox,\n" +
+		SCOPE + ".markdown-preview-view li.af-force-list-ltr > .task-list-item-checkbox {\n" +
+		"  direction: ltr;\n" +
+		"  unicode-bidi: isolate;\n" +
+		"  display: inline-block;\n" +
+		"}\n\n";
 
 	// 11. Per-instance heading alignment/bold overrides (headingOverrides.ts)
 	// — same "explicit override, placed LAST with real ancestor-chain
