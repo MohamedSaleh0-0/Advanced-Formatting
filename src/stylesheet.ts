@@ -285,6 +285,13 @@ export function buildStylesheet(profile: AdvancedFormattingSettings): string {
 		"  unicode-bidi: isolate;\n" +
 		"}\n\n";
 	css +=
+		SCOPE + ".markdown-source-view.mod-cm6 .cm-line.af-auto-rtl,\n" +
+		SCOPE + ".markdown-preview-view .af-auto-rtl {\n" +
+		"  direction: rtl;\n" +
+		"  text-align: right;\n" +
+		"  unicode-bidi: isolate;\n" +
+		"}\n\n";
+	css +=
 		SCOPE + ".markdown-source-view.mod-cm6 .cm-line.af-force-ltr,\n" +
 		SCOPE + ".markdown-preview-view .af-force-ltr {\n" +
 		"  direction: ltr;\n" +

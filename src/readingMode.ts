@@ -1,7 +1,7 @@
 import { App, MarkdownPostProcessorContext, Plugin, createEl } from "obsidian";
 import { AdvancedFormattingSettings, RoleMatch } from "./types";
 import { buildRoleRegexes, findLineMatches, resolveDelims } from "./delimiters";
-import { directOptionsToStyle, findDirectMatches, findRoleSyntaxMatches } from "./directSyntax";
+import { detectTextDirection, directOptionsToStyle, findDirectMatches, findRoleSyntaxMatches, unwrapReadableSyntax } from "./directSyntax";
 import { convertDigitsToArabicIndic } from "./footnotes";
 import { FORCE_RTL_MARKER, FORCE_LTR_MARKER } from "./direction";
 import { ALIGN_LEFT_MARKER, ALIGN_CENTER_MARKER, ALIGN_RIGHT_MARKER, BOLD_ON_MARKER, BOLD_OFF_MARKER } from "./headingOverrides";
@@ -115,13 +115,17 @@ function convertFootnoteRefNumerals(el: HTMLElement): void {
 // in one pass — not one strip per axis, which would each need to
 // re-walk the DOM.
 const OVERRIDE_BLOCK_SELECTOR = "p, h1, h2, h3, h4, h5, h6, li, blockquote";
-function applyLineOverrides(el: HTMLElement): void {
+function applyLineOverrides(el: HTMLElement, roles: AdvancedFormattingSettings["roles"]): void {
 	const blocks: HTMLElement[] = [];
 	if (el.matches && el.matches(OVERRIDE_BLOCK_SELECTOR)) blocks.push(el);
 	el.querySelectorAll(OVERRIDE_BLOCK_SELECTOR).forEach((b) => blocks.push(b as HTMLElement));
 
 	for (const block of blocks) {
 		const { markers, content } = scanRenderedTextMarkers(block.textContent || "");
+		const cleanText = unwrapReadableSyntax(block.textContent || "", roles);
+		if (!markers.includes(FORCE_RTL_MARKER) && !markers.includes(FORCE_LTR_MARKER) && detectTextDirection(cleanText) === "rtl") {
+			block.classList.add("af-auto-rtl");
+		}
 		if (!markers.length) continue;
 
 		const isListItem = block.tagName.toLowerCase() === "li";
@@ -156,7 +160,7 @@ function applyLineOverrides(el: HTMLElement): void {
 export function registerReadingModeProcessor(plugin: ReadingModePlugin): void {
 	plugin.registerMarkdownPostProcessor((el: HTMLElement, ctx: MarkdownPostProcessorContext) => {
 		convertFootnoteRefNumerals(el);
-		applyLineOverrides(el);
+		applyLineOverrides(el, plugin.settings.roles);
 
 		const roleRegexes = buildRoleRegexes(plugin.settings.roles);
 

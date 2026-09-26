@@ -3,7 +3,7 @@ import { Decoration, EditorView, ViewPlugin, WidgetType, type ViewUpdate } from 
 import { RangeSetBuilder } from "@codemirror/state";
 import { AdvancedFormattingSettings, RoleMatch } from "./types";
 import { buildRoleRegexes, findLineMatches } from "./delimiters";
-import { directOptionsToStyle, findDirectMatches, findRoleSyntaxMatches } from "./directSyntax";
+import { detectTextDirection, directOptionsToStyle, findDirectMatches, findRoleSyntaxMatches, unwrapReadableSyntax } from "./directSyntax";
 import { detectLineDirection, lineMarkerClusterBounds } from "./direction";
 import { detectAlignOverride, detectBoldOverride } from "./headingOverrides";
 import { detectListDepth } from "./lineContext";
@@ -213,6 +213,13 @@ function buildDecorations(view: EditorView, plugin: DecoratablePlugin): { deco: 
 			// happen to be stacked there.
 			const lineClasses: string[] = [];
 			const dir = detectLineDirection(line.text);
+			// Hidden formatting metadata must not decide the line's bidi base.
+			// Once that syntax is removed, an Arabic first strong character means
+			// the whole CodeMirror line needs an RTL embedding; isolating only the
+			// metadata does not change the line box's inherited LTR direction.
+			if (!dir && detectTextDirection(unwrapReadableSyntax(line.text, plugin.settings.roles)) === "rtl") {
+				lineClasses.push("af-auto-rtl");
+			}
 			if (dir) {
 				// Lists get dedicated classes. Their marker is part of the
 				// same CodeMirror line as the text, so a generic direction

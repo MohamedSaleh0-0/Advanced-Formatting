@@ -10,11 +10,29 @@ export const DIRECT_CLOSE = "=~";
 // direction context. This works for Arabic, Hebrew, Syriac, Thaana, N'Ko,
 // Adlam, and other RTL scripts without needing a language-specific branch.
 const BIDI_ISOLATE_OPEN = "\u2066";
+const BIDI_ISOLATE_RTL = "\u2067";
 const BIDI_ISOLATE_CLOSE = "\u2069";
 const BIDI_ISOLATES = /[\u2066\u2067\u2068\u2069]/g;
 
-function isolateAttributes(attributes: string): string {
-	return BIDI_ISOLATE_OPEN + attributes + BIDI_ISOLATE_CLOSE;
+export type BidiDirection = "ltr" | "rtl";
+
+// Numbers and punctuation do not establish paragraph direction. This is
+// intentionally a first-strong scan, rather than an RTL-character presence
+// check: an English line that ends with an Arabic citation must remain LTR.
+const RTL_STRONG = /[\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]/;
+const LTR_STRONG = /[A-Za-z\u00C0-\u02AF\u0370-\u052F]/;
+
+export function detectTextDirection(text: string): BidiDirection {
+	for (const char of text) {
+		if (RTL_STRONG.test(char)) return "rtl";
+		if (LTR_STRONG.test(char)) return "ltr";
+	}
+	return "ltr";
+}
+
+function isolateAttributes(attributes: string, direction: BidiDirection): string {
+	const isolate = direction === "rtl" ? BIDI_ISOLATE_RTL : BIDI_ISOLATE_OPEN;
+	return isolate + attributes + BIDI_ISOLATE_CLOSE;
 }
 
 function normalizeAttributes(raw: string): string {
@@ -113,7 +131,7 @@ export function findDirectMatches(text: string, textFrom = 0): DirectSyntaxMatch
 
 export function findRoleSyntaxMatches(text: string, roles: Role[], textFrom = 0): DirectSyntaxMatch[] {
 	const result: DirectSyntaxMatch[] = [];
-	const re = new RegExp("~=\\{(?:" + BIDI_ISOLATE_OPEN + ")?role:([^}\\n]+)(?:" + BIDI_ISOLATE_CLOSE + ")?\\}", "g");
+	const re = new RegExp("~=\\{(?:[\\u2066\\u2067])?role:([^}\\n]+)(?:" + BIDI_ISOLATE_CLOSE + ")?\\}", "g");
 	let match: RegExpExecArray | null;
 	while ((match = re.exec(text))) {
 		const roleId = normalizeAttributes(match[1]);
@@ -151,8 +169,8 @@ export function unwrapReadableSyntax(text: string, roles: Role[]): string {
 	return value;
 }
 
-export function buildRoleSyntaxMarkup(text: string, role: Role): string {
-	return DIRECT_OPEN + isolateAttributes("role:" + (role.id || role.label)) + "}" + text + DIRECT_CLOSE;
+export function buildRoleSyntaxMarkup(text: string, role: Role, direction = detectTextDirection(text)): string {
+	return DIRECT_OPEN + isolateAttributes("role:" + (role.id || role.label), direction) + "}" + text + DIRECT_CLOSE;
 }
 
 export function directOptionsToAttributes(opts: DirectFormatOptions): string {
@@ -168,7 +186,7 @@ export function directOptionsToAttributes(opts: DirectFormatOptions): string {
 	return attrs.join("; ");
 }
 
-export function buildDirectSyntaxMarkup(text: string, opts: DirectFormatOptions): string {
+export function buildDirectSyntaxMarkup(text: string, opts: DirectFormatOptions, direction = detectTextDirection(text)): string {
 	if (!text || !hasDirectAttributes(opts)) return text;
 	const hasNonNative = opts.underline || !!opts.color || !!opts.backgroundColor || !!opts.fontFamily || opts.sizeEm != null || !!opts.customCss.trim();
 	if (!hasNonNative) {
@@ -180,7 +198,7 @@ export function buildDirectSyntaxMarkup(text: string, opts: DirectFormatOptions)
 	const attrs = opts.color && !opts.bold && !opts.italic && !opts.underline && !opts.backgroundColor && !opts.fontFamily && opts.sizeEm == null && !opts.customCss.trim()
 		? opts.color
 		: directOptionsToAttributes(opts);
-	return DIRECT_OPEN + isolateAttributes(attrs) + "}" + text + DIRECT_CLOSE;
+	return DIRECT_OPEN + isolateAttributes(attrs, direction) + "}" + text + DIRECT_CLOSE;
 }
 
 export function directOptionsToStyle(opts: DirectFormatOptions): string {

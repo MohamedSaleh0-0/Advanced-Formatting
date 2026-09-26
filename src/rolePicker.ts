@@ -1,7 +1,7 @@
 import { App, Editor, FuzzySuggestModal } from "obsidian";
 import { Role } from "./types";
 import { unwrapDirectFormatting } from "./delimiters";
-import { buildRoleSyntaxMarkup, findDirectMatches, findRoleSyntaxMatches, unwrapReadableSyntax } from "./directSyntax";
+import { buildRoleSyntaxMarkup, detectTextDirection, findDirectMatches, findRoleSyntaxMatches, unwrapReadableSyntax } from "./directSyntax";
 
 // One searchable command ("Apply inline role...") that lists every
 // role, instead of requiring you to remember or hunt through N separate
@@ -47,13 +47,15 @@ export class RolePickerModal extends FuzzySuggestModal<Role> {
 		if (!rawSel) return;
 		if (from.line === to.line) {
 			const line = this.editor.getLine(from.line);
+			const direction = detectTextDirection(unwrapReadableSyntax(line, this.roles));
 			const existing = [...findDirectMatches(line), ...findRoleSyntaxMatches(line, this.roles)].find((match) => match.matchStart <= from.ch && match.matchEnd >= to.ch);
 			if (existing) {
-				this.editor.replaceRange(buildRoleSyntaxMarkup(line.slice(existing.contentStart, existing.contentEnd), role), { line: from.line, ch: existing.matchStart }, { line: from.line, ch: existing.matchEnd });
+				this.editor.replaceRange(buildRoleSyntaxMarkup(line.slice(existing.contentStart, existing.contentEnd), role, direction), { line: from.line, ch: existing.matchStart }, { line: from.line, ch: existing.matchEnd });
 				return;
 			}
 		}
 		const sel = unwrapReadableSyntax(unwrapDirectFormatting(rawSel, this.roles), this.roles);
-		this.editor.replaceSelection(buildRoleSyntaxMarkup(sel, role));
+		const line = unwrapReadableSyntax(this.editor.getLine(from.line), this.roles);
+		this.editor.replaceSelection(buildRoleSyntaxMarkup(sel, role, detectTextDirection(line)));
 	}
 }

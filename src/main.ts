@@ -13,7 +13,7 @@ import { FormatSelectionModal } from "./formatSelectionModal";
 import { CustomColorModal } from "./customColorModal";
 import { colorLabel } from "./colorNames";
 import { defaultDirectFormatOptions, detectBareBoldItalic, DirectFormatOptions } from "./directFormat";
-import { buildDirectSyntaxMarkup, findDirectMatches, findRoleSyntaxMatches, unwrapReadableSyntax } from "./directSyntax";
+import { buildDirectSyntaxMarkup, detectTextDirection, findDirectMatches, findRoleSyntaxMatches, unwrapReadableSyntax } from "./directSyntax";
 import { LineDirection, detectLineDirection, setLineDirection } from "./direction";
 import { AlignOverride, BoldOverride, detectAlignOverride, setAlignOverride, detectBoldOverride, setBoldOverride } from "./headingOverrides";
 import { detectHeadingKey, detectListDepth } from "./lineContext";
@@ -497,7 +497,8 @@ class AdvancedFormattingPlugin extends Plugin {
 		// to be a fast "just change the color" action, not "replace all
 		// formatting with color only."
 		const opts = Object.assign({}, target.existingOpts || defaultDirectFormatOptions(), { color });
-		editor.replaceRange(buildDirectSyntaxMarkup(target.clean, opts), target.from, target.to);
+		const line = unwrapReadableSyntax(editor.getLine(target.from.line), this.settings.roles);
+		editor.replaceRange(buildDirectSyntaxMarkup(target.clean, opts, detectTextDirection(line)), target.from, target.to);
 	}
 
 	openFormatSelectionModal(editor: Editor): void {
@@ -510,7 +511,8 @@ class AdvancedFormattingPlugin extends Plugin {
 		let currentFrom = target.from;
 		let currentTo = target.to;
 		const apply = (opts: DirectFormatOptions) => {
-			const markup = buildDirectSyntaxMarkup(sel, opts);
+			const line = unwrapReadableSyntax(editor.getLine(currentFrom.line), this.settings.roles);
+			const markup = buildDirectSyntaxMarkup(sel, opts, detectTextDirection(line));
 			editor.replaceRange(markup, currentFrom, currentTo);
 			currentTo = { line: currentFrom.line, ch: currentFrom.ch + markup.length };
 		};
